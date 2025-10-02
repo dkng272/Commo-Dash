@@ -6,7 +6,7 @@ from commo_dashboard import create_equal_weight_index, create_weighted_index, cr
 # Load data
 @st.cache_data
 def load_data():
-    df = pd.read_csv('cleaned_data.csv')
+    df = pd.read_csv('data/cleaned_data.csv')
     df['Date'] = pd.to_datetime(df['Date'])
     return df
 

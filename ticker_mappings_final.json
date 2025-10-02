@@ -1,0 +1,958 @@
+[
+  {
+    "ticker": "ANV",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "Pangaseus",
+        "region": "Vietnam",
+        "item": "ANV_Total_Value",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "BAF",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Wheat",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Corn",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "Hog",
+        "region": "Vietnam",
+        "item": "Hog_corporate_20k_South",
+        "sensitivity": null
+      },
+      {
+        "group": "Hog",
+        "region": "Vietnam",
+        "item": "Hog_corporate_North",
+        "sensitivity": null
+      },
+      {
+        "group": "Hog",
+        "region": "Vietnam",
+        "item": "Hog_corporate_South",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "BFC",
+    "inputs": [
+      {
+        "group": "DAP",
+        "region": "Vietnam",
+        "item": "DAP_DinhVu_61",
+        "sensitivity": null
+      },
+      {
+        "group": "Urea",
+        "region": "Vietnam",
+        "item": null,
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "NPK",
+        "region": "Vietnam",
+        "item": "NPK_BinhDien",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "BMP",
+    "inputs": [
+      {
+        "group": "PVC",
+        "region": "Asia",
+        "item": "PVC Spot SEA",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "BSR",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Crack Spread",
+        "region": "Global",
+        "item": "Asia Crack Spread",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "CSM",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "CSV",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Caustic Soda",
+        "region": "China",
+        "item": "China Caustic Soda",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "DBC",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Wheat",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Corn",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "Hog",
+        "region": "Vietnam",
+        "item": "Hog_corporate_20k_South",
+        "sensitivity": null
+      },
+      {
+        "group": "Hog",
+        "region": "Vietnam",
+        "item": "Hog_corporate_North",
+        "sensitivity": null
+      },
+      {
+        "group": "Hog",
+        "region": "Vietnam",
+        "item": "Hog_corporate_South",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "DCM",
+    "inputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Singapore Fuel 380",
+        "sensitivity": null
+      },
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "Urea",
+        "region": "Vietnam",
+        "item": "DCM",
+        "sensitivity": null
+      },
+      {
+        "group": "Urea",
+        "region": "Global",
+        "item": null,
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "DDV",
+    "inputs": [
+      {
+        "group": "P4 Rock",
+        "region": "China",
+        "item": "Phosphate rock",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "DAP",
+        "region": "Vietnam",
+        "item": "DAP_DinhVu_61",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "DGC",
+    "inputs": [
+      {
+        "group": "P4 Rock",
+        "region": "China",
+        "item": "Phosphate rock",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "Yellow P4",
+        "region": "Vietnam",
+        "item": "Yellow phosphorus - DGC",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "DHC",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "DPM",
+    "inputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Singapore Fuel 380",
+        "sensitivity": null
+      },
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "Urea",
+        "region": "Vietnam",
+        "item": "DPM",
+        "sensitivity": null
+      },
+      {
+        "group": "Urea",
+        "region": "Global",
+        "item": null,
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "DPR",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "DRC",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "DRG",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "DRI",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "FMC",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "GAS",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Gas/LNG",
+        "region": "Asia",
+        "item": "Asian LNG",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "GDA",
+    "inputs": [
+      {
+        "group": "HRC",
+        "region": "VN",
+        "item": "HRC HPG",
+        "sensitivity": null
+      },
+      {
+        "group": "HRC",
+        "region": "China",
+        "item": "China HRC",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "GSP",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Clean",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "GVR",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "HAG",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Wheat",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Corn",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": null,
+        "region": null,
+        "item": "Hog_corporate_20k_South",
+        "sensitivity": null
+      },
+      {
+        "group": null,
+        "region": null,
+        "item": "Hog_corporate_North",
+        "sensitivity": null
+      },
+      {
+        "group": null,
+        "region": null,
+        "item": "Hog_corporate_South",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "HAH",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Container",
+        "region": "Global",
+        "item": "1100 TC",
+        "sensitivity": null
+      },
+      {
+        "group": "Container",
+        "region": "Global",
+        "item": "1700 TC",
+        "sensitivity": null
+      },
+      {
+        "group": "Container",
+        "region": "Global",
+        "item": "Shanghai Container Index",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "HHP",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "HPG",
+    "inputs": [
+      {
+        "group": "Iron Ore",
+        "region": "Global",
+        "item": "Ore 62",
+        "sensitivity": null
+      },
+      {
+        "group": null,
+        "region": null,
+        "item": "Ore 68",
+        "sensitivity": null
+      },
+      {
+        "group": "Met Coal",
+        "region": "Global",
+        "item": "Aus Met Coal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "HRC",
+        "region": "VN",
+        "item": "HRC HPG",
+        "sensitivity": null
+      },
+      {
+        "group": "HRC",
+        "region": "China",
+        "item": "China HRC",
+        "sensitivity": null
+      },
+      {
+        "group": "Long Steel",
+        "region": "VN",
+        "item": "Long steel HPG",
+        "sensitivity": null
+      },
+      {
+        "group": "Long Steel",
+        "region": "China",
+        "item": "China Long steel",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "HSG",
+    "inputs": [
+      {
+        "group": "HRC",
+        "region": "VN",
+        "item": "HRC HPG",
+        "sensitivity": null
+      },
+      {
+        "group": "HRC",
+        "region": "China",
+        "item": "China HRC",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "HVN",
+    "inputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Jet Fuel",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "IDI",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": null,
+        "region": null,
+        "item": "IDI_Total_Value",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "LAS",
+    "inputs": [
+      {
+        "group": "DAP",
+        "region": "China",
+        "item": "DAP China",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": "NPK",
+        "region": "Vietnam",
+        "item": "NPK_Camau",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "LSS",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Sugar",
+        "region": "Global",
+        "item": "Sugar",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "LTG",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Grain",
+        "region": "Vietnam",
+        "item": "Rice VN Exports",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Vietnam",
+        "item": "Rice VN Exports",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "MML",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Wheat",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Corn",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": null,
+        "region": null,
+        "item": "Hog_corporate_20k_South",
+        "sensitivity": null
+      },
+      {
+        "group": null,
+        "region": null,
+        "item": "Hog_corporate_North",
+        "sensitivity": null
+      },
+      {
+        "group": null,
+        "region": null,
+        "item": "Hog_corporate_South",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "MPC",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "MSR",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Tungsten",
+        "region": "China",
+        "item": "China Tungsten",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "NKG",
+    "inputs": [
+      {
+        "group": "HRC",
+        "region": "VN",
+        "item": "HRC HPG",
+        "sensitivity": null
+      },
+      {
+        "group": "HRC",
+        "region": "China",
+        "item": "China HRC",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "NTP",
+    "inputs": [
+      {
+        "group": "PVC",
+        "region": "Asia",
+        "item": "PVC Spot SEA",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "OIL",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PAN",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Grain",
+        "region": "Vietnam",
+        "item": "Rice VN Exports",
+        "sensitivity": null
+      },
+      {
+        "group": "Grain",
+        "region": "Vietnam",
+        "item": "Rice VN Exports",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PDV",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Bulk",
+        "region": "Global",
+        "item": "Baltic Dry",
+        "sensitivity": null
+      },
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Clean",
+        "sensitivity": null
+      },
+      {
+        "group": "Bulk",
+        "region": "Global",
+        "item": "Baltic Handysize",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PHR",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "PLC",
+    "inputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "PLX",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PVD",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PVP",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Dirty",
+        "sensitivity": null
+      },
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Clean",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PVS",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Brent",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "PVT",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Clean",
+        "sensitivity": null
+      },
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Dirty",
+        "sensitivity": null
+      },
+      {
+        "group": "Bulk",
+        "region": "Global",
+        "item": "Baltic Handysize",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "QNS",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Sugar",
+        "region": "Global",
+        "item": "Sugar",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "SLS",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Sugar",
+        "region": "Global",
+        "item": "Sugar",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "TLG",
+    "inputs": [
+      {
+        "group": "PVC",
+        "region": "Asia",
+        "item": "PVC Spot SEA",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "TRC",
+    "inputs": [],
+    "outputs": []
+  },
+  {
+    "ticker": "VHC",
+    "inputs": [
+      {
+        "group": "Grain",
+        "region": "Global",
+        "item": "Soybean meal",
+        "sensitivity": null
+      }
+    ],
+    "outputs": [
+      {
+        "group": null,
+        "region": null,
+        "item": "VHC_USA_ASP",
+        "sensitivity": null
+      },
+      {
+        "group": null,
+        "region": null,
+        "item": "VHC_Total_Value",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "VIP",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Clean",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "VJC",
+    "inputs": [
+      {
+        "group": "Oil",
+        "region": "Global",
+        "item": "Jet Fuel",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "VNM",
+    "inputs": [
+      {
+        "group": "Milk ",
+        "region": "Global",
+        "item": "skim milk powder",
+        "sensitivity": null
+      },
+      {
+        "group": "Milk ",
+        "region": "Global",
+        "item": "whole milk powder",
+        "sensitivity": null
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "ticker": "VOS",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Bulk",
+        "region": "Global",
+        "item": "Baltic Dry",
+        "sensitivity": null
+      },
+      {
+        "group": "Container",
+        "region": "Global",
+        "item": "1100 TC",
+        "sensitivity": null
+      },
+      {
+        "group": "Container",
+        "region": "Global",
+        "item": "1700 TC",
+        "sensitivity": null
+      },
+      {
+        "group": "Container",
+        "region": "Global",
+        "item": "Shanghai Container Index",
+        "sensitivity": null
+      }
+    ]
+  },
+  {
+    "ticker": "VTO",
+    "inputs": [],
+    "outputs": [
+      {
+        "group": "Liquids",
+        "region": "Global",
+        "item": "Baltic Clean",
+        "sensitivity": null
+      }
+    ]
+  }
+]

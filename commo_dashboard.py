@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 
 #%%
-df = pd.read_csv('cleaned_data.csv')
+df = pd.read_csv('data/cleaned_data.csv')
 df['Date'] = pd.to_datetime(df['Date'])
 
 #%% Equal Weight Index Function
