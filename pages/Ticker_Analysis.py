@@ -80,6 +80,60 @@ def get_index_data(item, group, region, df, all_indexes, regional_indexes):
 
     return None
 
+def create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_value=100):
+    """
+    Create an equal-weighted index from multiple items.
+
+    Parameters:
+    - items_list: List of item dictionaries with 'item', 'group', 'region'
+    - df: Main dataframe
+    - all_indexes: Group-level indexes
+    - regional_indexes: Regional indexes
+    - base_value: Starting value for the index
+
+    Returns: DataFrame with Date and Price columns
+    """
+    all_prices = []
+
+    for item_info in items_list:
+        item_data = get_index_data(
+            item_info['item'],
+            item_info['group'],
+            item_info['region'],
+            df,
+            all_indexes,
+            regional_indexes
+        )
+
+        if item_data is not None and not item_data.empty:
+            item_data = item_data.copy()
+            item_name = item_info['item'] if item_info['item'] else f"{item_info['group']}_Index"
+            item_data = item_data.rename(columns={'Price': item_name})
+            all_prices.append(item_data.set_index('Date'))
+
+    if not all_prices:
+        return None
+
+    # Combine all price series
+    combined = pd.concat(all_prices, axis=1)
+
+    # Calculate returns
+    returns = combined.pct_change()
+
+    # Equal-weight average returns
+    avg_returns = returns.mean(axis=1, skipna=True)
+
+    # Build index
+    index_values = (1 + avg_returns).cumprod() * base_value
+    index_values.iloc[0] = base_value
+
+    result = pd.DataFrame({
+        'Date': index_values.index,
+        'Price': index_values.values
+    }).reset_index(drop=True)
+
+    return result
+
 # Load data
 df = load_data()
 ticker_mapping = load_ticker_mapping()
@@ -94,6 +148,14 @@ st.title('Ticker Commodity Analysis')
 selected_ticker = st.sidebar.selectbox(
     'Select Stock Ticker',
     options=sorted(all_tickers)
+)
+
+# Sidebar option to aggregate multiple items
+st.sidebar.divider()
+aggregate_items = st.sidebar.checkbox(
+    'Aggregate Multiple Items into Index',
+    value=False,
+    help='When enabled, combines multiple input/output items into an equal-weighted index'
 )
 
 # Get ticker data
@@ -123,22 +185,37 @@ if ticker_data:
         st.write("**Input Commodity Prices**")
         fig_inputs = go.Figure()
 
-        for inp in ticker_data['inputs']:
-            item_data = get_index_data(inp['item'], inp['group'], inp['region'], df, all_indexes, regional_indexes)
-            if item_data is not None and not item_data.empty:
-                # Normalize to base 100
-                item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
-
-                display_name = inp['item'] if inp['item'] else f"{inp['group']} Index"
-                if inp['region'] and inp['region'].lower() != 'nan' and not inp['item']:
-                    display_name = f"{inp['group']}-{inp['region']}"
+        if aggregate_items and len(ticker_data['inputs']) > 1:
+            # Create aggregated index for all inputs
+            aggregated_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
+            if aggregated_data is not None and not aggregated_data.empty:
+                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
 
                 fig_inputs.add_trace(go.Scatter(
-                    x=item_data['Date'],
-                    y=item_data['Normalized'],
+                    x=aggregated_data['Date'],
+                    y=aggregated_data['Normalized'],
                     mode='lines',
-                    name=display_name
+                    name='Aggregated Input Index',
+                    line=dict(width=3)
                 ))
+        else:
+            # Show individual items
+            for inp in ticker_data['inputs']:
+                item_data = get_index_data(inp['item'], inp['group'], inp['region'], df, all_indexes, regional_indexes)
+                if item_data is not None and not item_data.empty:
+                    # Normalize to base 100
+                    item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
+
+                    display_name = inp['item'] if inp['item'] else f"{inp['group']} Index"
+                    if inp['region'] and inp['region'].lower() != 'nan' and not inp['item']:
+                        display_name = f"{inp['group']}-{inp['region']}"
+
+                    fig_inputs.add_trace(go.Scatter(
+                        x=item_data['Date'],
+                        y=item_data['Normalized'],
+                        mode='lines',
+                        name=display_name
+                    ))
 
         fig_inputs.update_layout(
             xaxis_title='Date',
@@ -174,22 +251,37 @@ if ticker_data:
         st.write("**Output Commodity Prices**")
         fig_outputs = go.Figure()
 
-        for out in ticker_data['outputs']:
-            item_data = get_index_data(out['item'], out['group'], out['region'], df, all_indexes, regional_indexes)
-            if item_data is not None and not item_data.empty:
-                # Normalize to base 100
-                item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
-
-                display_name = out['item'] if out['item'] else f"{out['group']} Index"
-                if out['region'] and out['region'].lower() != 'nan' and not out['item']:
-                    display_name = f"{out['group']}-{out['region']}"
+        if aggregate_items and len(ticker_data['outputs']) > 1:
+            # Create aggregated index for all outputs
+            aggregated_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
+            if aggregated_data is not None and not aggregated_data.empty:
+                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
 
                 fig_outputs.add_trace(go.Scatter(
-                    x=item_data['Date'],
-                    y=item_data['Normalized'],
+                    x=aggregated_data['Date'],
+                    y=aggregated_data['Normalized'],
                     mode='lines',
-                    name=display_name
+                    name='Aggregated Output Index',
+                    line=dict(width=3)
                 ))
+        else:
+            # Show individual items
+            for out in ticker_data['outputs']:
+                item_data = get_index_data(out['item'], out['group'], out['region'], df, all_indexes, regional_indexes)
+                if item_data is not None and not item_data.empty:
+                    # Normalize to base 100
+                    item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
+
+                    display_name = out['item'] if out['item'] else f"{out['group']} Index"
+                    if out['region'] and out['region'].lower() != 'nan' and not out['item']:
+                        display_name = f"{out['group']}-{out['region']}"
+
+                    fig_outputs.add_trace(go.Scatter(
+                        x=item_data['Date'],
+                        y=item_data['Normalized'],
+                        mode='lines',
+                        name=display_name
+                    ))
 
         fig_outputs.update_layout(
             xaxis_title='Date',
@@ -210,40 +302,64 @@ if ticker_data:
         fig_combined = go.Figure()
 
         # Add inputs
-        for inp in ticker_data['inputs']:
-            item_data = get_index_data(inp['item'], inp['group'], inp['region'], df, all_indexes, regional_indexes)
-            if item_data is not None and not item_data.empty:
-                item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
-
-                display_name = inp['item'] if inp['item'] else f"{inp['group']} Index"
-                if inp['region'] and inp['region'].lower() != 'nan' and not inp['item']:
-                    display_name = f"{inp['group']}-{inp['region']}"
-
+        if aggregate_items and len(ticker_data['inputs']) > 1:
+            aggregated_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
+            if aggregated_data is not None and not aggregated_data.empty:
+                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
                 fig_combined.add_trace(go.Scatter(
-                    x=item_data['Date'],
-                    y=item_data['Normalized'],
+                    x=aggregated_data['Date'],
+                    y=aggregated_data['Normalized'],
                     mode='lines',
-                    name=f"[IN] {display_name}",
-                    line=dict(dash='dot')
+                    name='[IN] Aggregated Input Index',
+                    line=dict(dash='dot', width=3)
                 ))
+        else:
+            for inp in ticker_data['inputs']:
+                item_data = get_index_data(inp['item'], inp['group'], inp['region'], df, all_indexes, regional_indexes)
+                if item_data is not None and not item_data.empty:
+                    item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
+
+                    display_name = inp['item'] if inp['item'] else f"{inp['group']} Index"
+                    if inp['region'] and inp['region'].lower() != 'nan' and not inp['item']:
+                        display_name = f"{inp['group']}-{inp['region']}"
+
+                    fig_combined.add_trace(go.Scatter(
+                        x=item_data['Date'],
+                        y=item_data['Normalized'],
+                        mode='lines',
+                        name=f"[IN] {display_name}",
+                        line=dict(dash='dot')
+                    ))
 
         # Add outputs
-        for out in ticker_data['outputs']:
-            item_data = get_index_data(out['item'], out['group'], out['region'], df, all_indexes, regional_indexes)
-            if item_data is not None and not item_data.empty:
-                item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
-
-                display_name = out['item'] if out['item'] else f"{out['group']} Index"
-                if out['region'] and out['region'].lower() != 'nan' and not out['item']:
-                    display_name = f"{out['group']}-{out['region']}"
-
+        if aggregate_items and len(ticker_data['outputs']) > 1:
+            aggregated_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
+            if aggregated_data is not None and not aggregated_data.empty:
+                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
                 fig_combined.add_trace(go.Scatter(
-                    x=item_data['Date'],
-                    y=item_data['Normalized'],
+                    x=aggregated_data['Date'],
+                    y=aggregated_data['Normalized'],
                     mode='lines',
-                    name=f"[OUT] {display_name}",
-                    line=dict(width=2)
+                    name='[OUT] Aggregated Output Index',
+                    line=dict(width=3)
                 ))
+        else:
+            for out in ticker_data['outputs']:
+                item_data = get_index_data(out['item'], out['group'], out['region'], df, all_indexes, regional_indexes)
+                if item_data is not None and not item_data.empty:
+                    item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
+
+                    display_name = out['item'] if out['item'] else f"{out['group']} Index"
+                    if out['region'] and out['region'].lower() != 'nan' and not out['item']:
+                        display_name = f"{out['group']}-{out['region']}"
+
+                    fig_combined.add_trace(go.Scatter(
+                        x=item_data['Date'],
+                        y=item_data['Normalized'],
+                        mode='lines',
+                        name=f"[OUT] {display_name}",
+                        line=dict(width=2)
+                    ))
 
         fig_combined.update_layout(
             xaxis_title='Date',

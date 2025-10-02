@@ -153,19 +153,7 @@
       {
         "group": "Hog",
         "region": "Vietnam",
-        "item": "Hog_corporate_20k_South",
-        "sensitivity": null
-      },
-      {
-        "group": "Hog",
-        "region": "Vietnam",
-        "item": "Hog_corporate_North",
-        "sensitivity": null
-      },
-      {
-        "group": "Hog",
-        "region": "Vietnam",
-        "item": "Hog_corporate_South",
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -317,7 +305,7 @@
     "inputs": [
       {
         "group": "HRC",
-        "region": "VN",
+        "region": "Vietnam",
         "item": "HRC HPG",
         "sensitivity": null
       },
@@ -371,21 +359,9 @@
     ],
     "outputs": [
       {
-        "group": null,
-        "region": null,
+        "group": "Hog",
+        "region": "Vietnam",
         "item": "Hog_corporate_20k_South",
-        "sensitivity": null
-      },
-      {
-        "group": null,
-        "region": null,
-        "item": "Hog_corporate_North",
-        "sensitivity": null
-      },
-      {
-        "group": null,
-        "region": null,
-        "item": "Hog_corporate_South",
         "sensitivity": null
       }
     ]
@@ -444,7 +420,7 @@
     "outputs": [
       {
         "group": "HRC",
-        "region": "VN",
+        "region": "Vietnam",
         "item": "HRC HPG",
         "sensitivity": null
       },
@@ -456,7 +432,7 @@
       },
       {
         "group": "Long Steel",
-        "region": "VN",
+        "region": "Vietnam",
         "item": "Long steel HPG",
         "sensitivity": null
       },
@@ -473,7 +449,7 @@
     "inputs": [
       {
         "group": "HRC",
-        "region": "VN",
+        "region": "Vietnam",
         "item": "HRC HPG",
         "sensitivity": null
       },
@@ -631,7 +607,7 @@
     "inputs": [
       {
         "group": "HRC",
-        "region": "VN",
+        "region": "Vietnam",
         "item": "HRC HPG",
         "sensitivity": null
       },
