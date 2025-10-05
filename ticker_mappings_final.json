@@ -293,9 +293,9 @@
     "inputs": [],
     "outputs": [
       {
-        "group": "Gas/LNG",
-        "region": "Asia",
-        "item": "Asian LNG",
+        "group": "Oil",
+        "region": "Global",
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -405,8 +405,8 @@
         "sensitivity": null
       },
       {
-        "group": null,
-        "region": null,
+        "group": "Iron Ore",
+        "region": "Global",
         "item": "Ore 68",
         "sensitivity": null
       },

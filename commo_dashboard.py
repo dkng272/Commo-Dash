@@ -30,7 +30,7 @@ def create_equal_weight_index(df, group_name, base_value=100):
     pivot_df = group_df.pivot(index='Date', columns='Ticker', values='Price')
 
     # Calculate daily returns
-    returns_df = pivot_df.pct_change()
+    returns_df = pivot_df.pct_change(fill_method=None)
 
     # Equal weight - average returns across available tickers each day
     avg_returns = returns_df.mean(axis=1, skipna=True)
@@ -71,7 +71,7 @@ def create_weighted_index(df, group_name, weights_dict, base_value=100):
     pivot_df = group_df.pivot(index='Date', columns='Ticker', values='Price')
 
     # Calculate daily returns
-    returns_df = pivot_df.pct_change()
+    returns_df = pivot_df.pct_change(fill_method=None)
 
     # Apply weights - normalize by available tickers each day
     weighted_returns = pd.Series(0.0, index=returns_df.index)
@@ -126,7 +126,7 @@ for group in list(all_indexes.keys())[1:]:
     combined_df = combined_df.merge(temp_df, on='Date', how='outer')
 
 combined_df = combined_df.sort_values('Date')
-combined_df = combined_df.fillna(method='ffill') #front fill to propagate last valid observation
+combined_df = combined_df.ffill() #front fill to propagate last valid observation
 # combined_df = combined_df[combined_df['Date'] >= '2024-01-01'] # remove hog before 1/1/2024
 
 #%% Visualization Function
@@ -236,7 +236,7 @@ def create_regional_indexes(df, base_value=100):
         else:
             # Create equal-weight index
             pivot_df = region_df.pivot(index='Date', columns='Ticker', values='Price')
-            returns_df = pivot_df.pct_change()
+            returns_df = pivot_df.pct_change(fill_method=None)
             avg_returns = returns_df.mean(axis=1, skipna=True)
             index_values = (1 + avg_returns).cumprod() * base_value
             index_values.iloc[0] = base_value
@@ -262,7 +262,7 @@ if len(regional_indexes) > 0:
         regional_combined_df = regional_combined_df.merge(temp_df, on='Date', how='outer')
 
     regional_combined_df = regional_combined_df.sort_values('Date')
-    regional_combined_df = regional_combined_df.fillna(method='ffill')
+    regional_combined_df = regional_combined_df.ffill()
 else:
     regional_combined_df = pd.DataFrame()
 

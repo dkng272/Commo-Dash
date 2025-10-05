@@ -40,7 +40,7 @@ def build_indexes(df):
         combined_df = combined_df.merge(temp_df, on='Date', how='outer')
 
     combined_df = combined_df.sort_values('Date')
-    combined_df = combined_df.fillna(method='ffill')
+    combined_df = combined_df.ffill()
 
     # Regional indexes
     regional_indexes = create_regional_indexes(df)
@@ -56,7 +56,7 @@ def build_indexes(df):
             regional_combined_df = regional_combined_df.merge(temp_df, on='Date', how='outer')
 
         regional_combined_df = regional_combined_df.sort_values('Date')
-        regional_combined_df = regional_combined_df.fillna(method='ffill')
+        regional_combined_df = regional_combined_df.ffill()
     else:
         regional_combined_df = pd.DataFrame()
 
@@ -95,24 +95,24 @@ summary_df = pd.DataFrame(summary_data)
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.write("**Top 5 - Largest 1D Swings**")
-    top_1d = summary_df.sort_values('1D Abs Swing', ascending=False).head(5)
+    st.write("**Top 10 - Largest 1D Swings**")
+    top_1d = summary_df.sort_values('1D Abs Swing', ascending=False).head(10)
     st.dataframe(
         top_1d[['Group', '1D Change (%)']],
         hide_index=True
     )
 
 with col2:
-    st.write("**Top 5 - Largest 5D Swings**")
-    top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(5)
+    st.write("**Top 10 - Largest 5D Swings**")
+    top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(10)
     st.dataframe(
         top_5d[['Group', '5D Change (%)']],
         hide_index=True
     )
 
 with col3:
-    st.write("**Top 5 - Largest 15D Swings**")
-    top_15d = summary_df.sort_values('15D Abs Swing', ascending=False).head(5)
+    st.write("**Top 10 - Largest 15D Swings**")
+    top_15d = summary_df.sort_values('15D Abs Swing', ascending=False).head(10)
     st.dataframe(
         top_15d[['Group', '15D Change (%)']],
         hide_index=True
