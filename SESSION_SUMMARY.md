@@ -19,8 +19,8 @@ Commo Dash/
 │   ├── Ticker_Analysis.py         # Stock ticker commodity analysis (main)
 │   ├── Correlation_Matrix.py      # Stock vs commodity correlation explorer
 │   └── _Custom_Ticker_Correlation.py  # Custom ticker correlation (hidden)
-├── commo_dashboard.py              # Core index creation functions
-├── dashboard_app.py                # Main Streamlit dashboard
+├── commo_dashboard.py              # Core index creation functions (group, regional, sector)
+├── dashboard_app.py                # Main Streamlit dashboard (wide layout, sector chart)
 ├── ssi_api.py                      # SSI/TCBS API integration for stock prices
 ├── data_cleaning.py                # Data cleaning and consolidation
 ├── commo_list.xlsx                 # Commodity classification (Group, Region mapping)
@@ -54,6 +54,12 @@ Commo Dash/
 - Creates indexes for each Group-Region combination
 - Format: "Steel - China", "Oil - Global"
 - Special handling for Crack Spread (absolute value averaging)
+
+#### `create_sector_indexes(df, base_value=100)`
+- Creates equal-weighted indexes for each Sector (highest classification level)
+- Aggregates all tickers within a sector regardless of group/region
+- Available sectors: Energy, Fertilizers, Chemicals, Metals, Steel, Steel Material, Shipping, Agri, Industrials Vietnam
+- Uses same methodology as group indexes with `skipna=True` for NA handling
 
 **Important**:
 - Excludes "Pangaseus" group
@@ -161,15 +167,44 @@ Specific Item → Regional Index → Group Index → None
 
 ---
 
+### 6. Main Dashboard (`dashboard_app.py`)
+
+**Layout**: Wide mode (`st.set_page_config(layout="wide")`)
+
+**Features**:
+
+#### Sector Performance Chart (Top of Page)
+- Shows all 9 sectors on single chart
+- Normalized to base 100 starting from 2025-01-01
+- Horizontal legend at top for space efficiency
+- Quick visual comparison of sector trends
+
+#### Largest Index Swings Tables
+- 4 columns: 5D, 10D, 50D, 150D
+- Top 10 groups by absolute swing magnitude
+- Color-coded: Green (positive), Red (negative), Black (zero)
+- 2 decimal precision
+
+#### Group-Level Analysis
+- Dropdown to select commodity group
+- Shows component tickers
+- Group index chart
+- Performance metrics (Current, 1D, 5D, 15D)
+- Regional breakdowns with tabs (if applicable)
+
+---
+
 ## Data Schema
 
 ### cleaned_data.csv
 ```
-Date       | Ticker                      | Price  | Group      | Region
-2024-01-01 | Ore 62                      | 142.0  | Iron Ore   | China
-2024-01-01 | Yellow phosphorus - China   | 25000  | Yellow P4  | China
-2024-01-01 | HRC - VN                    | 550    | HRC        | VN
+Date       | Ticker                      | Price  | Group      | Region | Sector
+2024-01-01 | Ore 62                      | 142.0  | Iron Ore   | China  | Steel Material
+2024-01-01 | Yellow phosphorus - China   | 25000  | Yellow P4  | China  | Chemicals
+2024-01-01 | HRC - VN                    | 550    | HRC        | VN     | Steel
 ```
+
+**Classification Hierarchy**: Sector (highest) → Group → Region → Item (most specific)
 
 ### ticker_mappings_final.json
 ```json
@@ -201,19 +236,83 @@ Date       | Ticker                      | Price  | Group      | Region
 ### 1. Index Methodology
 - **Equal-weight**: Average of daily returns
 - **Base value**: 100 (normalized for comparison)
-- **Missing data**: Forward-fill to align different start dates
+- **Missing data handling**: Robust NA handling at multiple levels
 - **Aggregation**: Always used in Combined View for consistent spread calculation
+
+#### Equal-Weight Index Calculation Steps:
+1. **Get component prices**: Pivot data into matrix (dates × tickers)
+2. **Calculate daily returns**: `pct_change(fill_method=None)` for each ticker
+3. **Equal-weight averaging**: `mean(axis=1, skipna=True)` across all available tickers
+4. **Build cumulative index**: `(1 + avg_returns).cumprod() * base_value`
+5. **Set starting value**: `index_values.iloc[0] = base_value`
+
+#### NA Handling Strategy:
+**Problem Type 1: Different Starting Dates**
+- Ticker A starts Jan 2024, Ticker B starts Mar 2024
+- Solution: `skipna=True` in mean calculation
+- Jan-Feb: Uses only Ticker A's returns
+- Mar onward: Averages both A & B's returns
+- No manual intervention needed
+
+**Problem Type 2: Sporadic Missing Data**
+- Occasional gaps in price updates for specific tickers
+- Solution: `mean(axis=1, skipna=True)` automatically excludes NaN values
+- Only uses available tickers for each day's average
+- Example: If 3 tickers but 1 is missing → averages the 2 available
+
+**Problem Type 3: Empty Groups After Filtering**
+- When date filtering removes all data for a group
+- Solution: Early exit with empty DataFrame if `len(group_df) == 0` or `len(pivot_df) == 0`
+- Prevents `IndexError: iloc cannot enlarge its target object`
+
+**Forward-Fill Usage**:
+- Applied to final combined index DataFrame: `combined_df.ffill()`
+- Propagates last valid index value forward when entire day has no updates
+- Maintains continuous time series for visualization
 
 ### 2. Correlation Approach
 - **Regional indexes only**: More granular than group-level
 - **Two types**: Price level and daily returns
 - **Spread correlation**: Uses MA20 for smoothing
 
+#### Correlation Calculation:
+**Formula**: `merged['Stock_Price'].corr(merged['Commodity_Price'])`
+- Pearson correlation between aligned time series
+- **NA Handling**: `pd.merge(on='Date', how='inner')` ensures only matching dates are used
+- Missing dates in either series are automatically excluded
+- No NaN values in correlation calculation
+
+**Returns Correlation**:
+```python
+merged['Stock_Return'] = merged['Stock_Price'].pct_change(fill_method=None)
+merged['Commodity_Return'] = merged['Price'].pct_change(fill_method=None)
+return_corr = merged['Stock_Return'].corr(merged['Commodity_Return'])
+```
+- First row will have NaN returns (no previous data)
+- `.corr()` automatically ignores NaN pairs
+- Correlation calculated on available return pairs only
+
 ### 3. Spread Analysis
-- **Formula**: `Output - Input`
+- **Formula**: `Spread = Output - Input` (both normalized to base 100)
 - **MA20 smoothing**: Reduces noise, shows trend
 - **Interpretation**: Rising = expanding margins = bullish for stock
 - **Correlation**: Helps validate if margin expansion drives stock price
+
+#### Spread Calculation with NA Handling:
+```python
+merged_spread = pd.merge(
+    input_normalized.rename(columns={'Normalized': 'Input'}),
+    output_normalized.rename(columns={'Normalized': 'Output'}),
+    on='Date', how='inner'
+)
+merged_spread['Spread'] = merged_spread['Output'] - merged_spread['Input']
+merged_spread['Spread_MA20'] = merged_spread['Spread'].rolling(window=20, min_periods=1).mean()
+```
+- **Inner join**: Only uses dates where both input and output exist
+- **Rolling MA20**: `min_periods=1` allows calculation even with <20 data points
+- First 19 points use available data (MA1, MA2, ..., MA19)
+- From point 20 onward: proper 20-period moving average
+- No NaN values in spread calculation (but MA20 may have NaN if spread itself is NaN)
 
 ### 4. Stock Price Integration
 - **Source**: TCBS API (Vietnamese market data)
@@ -234,6 +333,21 @@ Date       | Ticker                      | Price  | Group      | Region
 **Returns**: Dictionary with Input/Output percentage changes (5D, 10D, 50D, 150D)
 - Always aggregates multiple inputs/outputs
 - Reusable for future all-tickers summary table
+
+### `create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_value=100)`
+**Purpose**: Combine multiple commodities into single equal-weighted index
+**Process**:
+1. Get price series for each item (or fallback to regional/group index)
+2. Concatenate all price series: `pd.concat(all_prices, axis=1)`
+3. Calculate returns for each: `pct_change(fill_method=None)`
+4. Equal-weight average: `returns.mean(axis=1, skipna=True)`
+5. Build cumulative index: `(1 + avg_returns).cumprod() * base_value`
+
+**NA Handling**:
+- `concat(axis=1)` creates matrix with potential NaNs where dates don't align
+- `mean(axis=1, skipna=True)` averages only available items each day
+- Handles different date ranges automatically
+- Example: Input A (Jan-Dec) + Input B (Mar-Dec) → Jan-Feb uses only A, Mar-Dec uses both
 
 ### `calculate_correlations(ticker, ticker_data, df, all_indexes, regional_indexes, stock_data)`
 **Returns**: Tuple of `(price_correlations, return_correlations)`

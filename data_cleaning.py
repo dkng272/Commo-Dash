@@ -9,21 +9,21 @@ sheet_name = ['Steel','Giaheo','Catra','Commodities', 'Textile','Container']
 #%% Preparing non-Bloomberg data
 # Sheet
 sheet_1 = 'Steel'
-steel_df = pd.read_excel('NonBBG_data.xlsx', sheet_name=sheet_1)
+steel_df = pd.read_excel('data/NonBBG_data.xlsx', sheet_name=sheet_1)
 steel_df = steel_df.melt(id_vars=['Dates'],value_vars = steel_df.columns[1:],var_name='Ticker', value_name='Price')
 steel_df.rename(columns={'Dates':'Date'}, inplace=True)
 steel_df = steel_df.sort_values('Date', ascending = True)
 
 # Gia heo
 sheet_2 = 'Giaheo'
-heo_df = pd.read_excel('NonBBG_data.xlsx', sheet_name=sheet_2)
+heo_df = pd.read_excel('data/NonBBG_data.xlsx', sheet_name=sheet_2)
 heo_df.drop(columns=['Region','Low','High'], inplace=True)
 heo_df.rename(columns={'Average':'Price','Name':'Ticker'}, inplace=True)
 heo_df = heo_df.sort_values('Date', ascending = True)
 
 # Ca tra
 sheet_3 = 'Catra'
-fish_df = pd.read_excel('NonBBG_data.xlsx', sheet_name=sheet_3)
+fish_df = pd.read_excel('data/NonBBG_data.xlsx', sheet_name=sheet_3)
 fish_df.drop(columns=['Market','Ticker'], inplace=True)
 fish_value_df = fish_df[['Date','Code','Value']].copy()
 fish_value_df['Code'] = fish_value_df['Code'] + '_Value'
@@ -37,13 +37,13 @@ fish_df = fish_df.sort_values('Date', ascending = True)
 
 # Commodities
 sheet_4 = 'Commodities'
-commo_df = pd.read_excel('NonBBG_data.xlsx', sheet_name=sheet_4)
+commo_df = pd.read_excel('data/NonBBG_data.xlsx', sheet_name=sheet_4)
 commo_df = commo_df.melt(id_vars=['Date'],value_vars = commo_df.columns[1:],var_name='Ticker', value_name='Price')
 commo_df = commo_df.sort_values('Date', ascending = True)
 
 # Container
 sheet_5 = 'Container'
-container_df = pd.read_excel('NonBBG_data.xlsx', sheet_name=sheet_5)
+container_df = pd.read_excel('data/NonBBG_data.xlsx', sheet_name=sheet_5)
 container_df.rename(columns={'Row Labels':'Date'}, inplace=True)
 container_df = container_df.melt(id_vars=['Date'],value_vars = container_df.columns[1:],var_name='Ticker', value_name='Price')
 container_df = container_df.sort_values('Date', ascending = True)
@@ -53,7 +53,7 @@ merged_df = pd.concat([steel_df, heo_df, fish_df, commo_df, container_df])
 merged_df['Ticker'] = merged_df['Ticker'].str.strip()
 
 #%% Bloomberg Data
-df = pd.read_csv('BBG_data.csv')
+df = pd.read_csv('data/BBG_data.csv')
 df.columns = df.columns.str.strip()
 df.rename(columns={'Commodities':'Ticker'}, inplace=True)
 df['Ticker'] = df['Ticker'].str.strip()
@@ -70,7 +70,11 @@ final_df['Group'] = final_df['Ticker'].map(class_list)
 
 # Add Region mapping
 region_list = classification.set_index('Item')['Region'].to_dict()
-final_df['Region'] = final_df['Ticker'].map(region_list) 
+final_df['Region'] = final_df['Ticker'].map(region_list)
+
+# Add Sector mapping
+sector_list = classification.set_index('Item')['Sector'].to_dict()
+final_df['Sector'] = final_df['Ticker'].map(sector_list)
 
 # # Remove ungrouped tickers
 # final_df = final_df[~final_df['Group'].isna()]
@@ -89,14 +93,23 @@ final_df = final_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
 #     print(classification[classification['Group'] == group]['Item'].unique())
 #     print("\n")
 
-# final_df.to_csv('cleaned_data.csv', index=False)
+final_df.to_csv('data/cleaned_data.csv', index=False)
 
 #%% Ticker list analysis
 all_ticker_list = final_df.Ticker.unique().tolist()
 classified_ticker_list = classification.Item.unique().tolist()
-print(f"Total tickers in the data: {len(all_ticker_list)}")
-print(f"Total classified tickers: {len(classified_ticker_list)}")
 missing_in_data_ticker = [ticker for ticker in classified_ticker_list if ticker not in all_ticker_list]
 unclassified_ticker = [ticker for ticker in all_ticker_list if ticker not in classified_ticker_list]
-print(f"Tickers in classification list but missing in data ({len(missing_in_data_ticker)}): {missing_in_data_ticker}")
-print(f"Tickers in data but not classified ({len(unclassified_ticker)}): {unclassified_ticker}")
+
+# Create ticker status dataframe
+bbg_ticker_list = df.Ticker.unique().tolist()
+
+ticker_status_df = pd.DataFrame({
+    'Ticker': sorted(all_ticker_list),
+    'Source': ['BBG' if ticker in bbg_ticker_list else 'Non_BBG' for ticker in sorted(all_ticker_list)],
+    'Is_Classified': [ticker in classified_ticker_list for ticker in sorted(all_ticker_list)]
+})
+
+ticker_status_df['Is_Classified'] = ticker_status_df['Is_Classified'].astype(int)  # Convert boolean to string for better readability
+
+# ticker_status_df.to_csv('ticker_status.csv', index=False)

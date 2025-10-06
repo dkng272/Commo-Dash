@@ -1,12 +1,6 @@
-#%%
 import pandas as pd
 import numpy as np
 
-#%%
-df = pd.read_csv('data/cleaned_data.csv')
-df['Date'] = pd.to_datetime(df['Date'])
-
-#%% Equal Weight Index Function
 def create_equal_weight_index(df, group_name, base_value=100):
     """
     Creates an equal-weighted index for a commodity group based on daily returns.
@@ -26,8 +20,16 @@ def create_equal_weight_index(df, group_name, base_value=100):
     # Remove duplicates, keep last value for each Date-Ticker combination
     group_df = group_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
 
+    # Return empty DataFrame if no data
+    if len(group_df) == 0:
+        return pd.DataFrame(columns=['Date', 'Index_Value'])
+
     # Pivot to get prices for each ticker by date
     pivot_df = group_df.pivot(index='Date', columns='Ticker', values='Price')
+
+    # Return empty DataFrame if pivot is empty
+    if len(pivot_df) == 0:
+        return pd.DataFrame(columns=['Date', 'Index_Value'])
 
     # Calculate daily returns
     returns_df = pivot_df.pct_change(fill_method=None)
@@ -37,7 +39,8 @@ def create_equal_weight_index(df, group_name, base_value=100):
 
     # Build index starting from base value
     index_values = (1 + avg_returns).cumprod() * base_value
-    index_values.iloc[0] = base_value
+    if len(index_values) > 0:
+        index_values.iloc[0] = base_value
 
     result = pd.DataFrame({
         'Date': index_values.index,
@@ -46,7 +49,6 @@ def create_equal_weight_index(df, group_name, base_value=100):
 
     return result
 
-#%% Custom Weight Index Function
 def create_weighted_index(df, group_name, weights_dict, base_value=100):
     """
     Creates a custom-weighted index for a commodity group based on user-defined weights.
@@ -97,100 +99,51 @@ def create_weighted_index(df, group_name, weights_dict, base_value=100):
 
     return result
 
-#%% Create all equal-weight indexes
-all_groups = df['Group'].unique()
-all_indexes = {}
-
-for group in all_groups:
-    if group not in ['Pangaseus', 'Crack Spread']:
-        all_indexes[group] = create_equal_weight_index(df, group)
-
-# Handle Crack Spread separately - use average absolute value
-crack_spread_df = df[df['Group'] == 'Crack Spread'].copy()
-crack_spread_df = crack_spread_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
-crack_pivot = crack_spread_df.pivot(index='Date', columns='Ticker', values='Price')
-crack_avg = crack_pivot.abs().mean(axis=1)
-all_indexes['Crack Spread'] = pd.DataFrame({
-    'Date': crack_avg.index,
-    'Index_Value': crack_avg.values
-})
-
-# Combine all indexes into a single dataframe
-first_group = list(all_indexes.keys())[0]
-combined_df = all_indexes[first_group].copy()
-combined_df.rename(columns={'Index_Value': first_group}, inplace=True)
-
-for group in list(all_indexes.keys())[1:]:
-    temp_df = all_indexes[group].copy()
-    temp_df.rename(columns={'Index_Value': group}, inplace=True)
-    combined_df = combined_df.merge(temp_df, on='Date', how='outer')
-
-combined_df = combined_df.sort_values('Date')
-combined_df = combined_df.ffill() #front fill to propagate last valid observation
-# combined_df = combined_df[combined_df['Date'] >= '2024-01-01'] # remove hog before 1/1/2024
-
-#%% Visualization Function
-import plotly.graph_objects as go
-
-def plot_index(group_name, combined_df):
+def create_sector_indexes(df, base_value=100):
     """
-    Plot a single commodity group index
+    Create equal-weighted indexes for each Sector by aggregating all groups within that sector
 
     Parameters:
-    - group_name: Name of the group to plot
-    - combined_df: DataFrame with all indexes
+    - df: DataFrame with columns ['Date', 'Ticker', 'Price', 'Group', 'Sector']
+    - base_value: Starting value of the index (default: 100)
+
+    Returns:
+    - Dictionary with sector names as keys and index DataFrames as values
     """
-    fig = go.Figure()
+    sector_indexes = {}
 
-    fig.add_trace(go.Scatter(
-        x=combined_df['Date'],
-        y=combined_df[group_name],
-        mode='lines',
-        name=group_name,
-        line=dict(width=2)
-    ))
+    # Get unique sectors
+    sectors = df['Sector'].dropna().unique()
 
-    fig.update_layout(
-        title=f'{group_name} Index',
-        xaxis_title='Date',
-        yaxis_title='Index Value' if group_name != 'Crack Spread' else 'Average Absolute Value',
-        hovermode='x unified',
-        template='plotly_white',
-        height=500
-    )
+    for sector in sectors:
+        # Filter for this sector
+        sector_df = df[df['Sector'] == sector].copy()
+        sector_df = sector_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
 
-    fig.show()
+        # Skip if no data
+        if len(sector_df) == 0:
+            continue
 
-def plot_all_indexes(combined_df, groups_list):
-    """
-    Plot all commodity group indices on one chart
+        # Pivot to get prices for each ticker by date
+        pivot_df = sector_df.pivot(index='Date', columns='Ticker', values='Price')
 
-    Parameters:
-    - combined_df: DataFrame with all indexes
-    - groups_list: List of group names to plot
-    """
-    fig = go.Figure()
+        # Calculate daily returns
+        returns_df = pivot_df.pct_change(fill_method=None)
 
-    for group in groups_list:
-        fig.add_trace(go.Scatter(
-            x=combined_df['Date'],
-            y=combined_df[group],
-            mode='lines',
-            name=group
-        ))
+        # Equal weight - average returns across available tickers each day
+        avg_returns = returns_df.mean(axis=1, skipna=True)
 
-    fig.update_layout(
-        title='Commodity Group Indices (Equal-Weighted)',
-        xaxis_title='Date',
-        yaxis_title='Index Value (Base = 100)',
-        hovermode='x unified',
-        template='plotly_white',
-        height=600
-    )
+        # Build index starting from base value
+        index_values = (1 + avg_returns).cumprod() * base_value
+        index_values.iloc[0] = base_value
 
-    fig.show()
+        sector_indexes[sector] = pd.DataFrame({
+            'Date': index_values.index,
+            'Index_Value': index_values.values
+        })
 
-#%% Create Regional Sub-Indexes
+    return sector_indexes
+
 def create_regional_indexes(df, base_value=100):
     """
     Create equal-weighted indexes for each Group-Region combination
@@ -246,33 +199,3 @@ def create_regional_indexes(df, base_value=100):
             })
 
     return regional_indexes
-
-# Create regional indexes
-regional_indexes = create_regional_indexes(df)
-
-# Combine all regional indexes into a single dataframe
-if len(regional_indexes) > 0:
-    first_regional = list(regional_indexes.keys())[0]
-    regional_combined_df = regional_indexes[first_regional].copy()
-    regional_combined_df.rename(columns={'Index_Value': first_regional}, inplace=True)
-
-    for key in list(regional_indexes.keys())[1:]:
-        temp_df = regional_indexes[key].copy()
-        temp_df.rename(columns={'Index_Value': key}, inplace=True)
-        regional_combined_df = regional_combined_df.merge(temp_df, on='Date', how='outer')
-
-    regional_combined_df = regional_combined_df.sort_values('Date')
-    regional_combined_df = regional_combined_df.ffill()
-else:
-    regional_combined_df = pd.DataFrame()
-
-# # Check available regional indexes
-# print("Available Regional Indexes:")
-# for key in regional_indexes.keys():
-#     print(f"  - {key}")
-
-# Example usage
-# plot_index('HRC', combined_df)
-# plot_all_indexes(combined_df, list(all_indexes.keys()))
-# For regional:
-# plot_index('HRC - VN', regional_combined_df)

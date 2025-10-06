@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from commo_dashboard import create_equal_weight_index, create_weighted_index, create_regional_indexes
+from commo_dashboard import create_equal_weight_index, create_weighted_index, create_regional_indexes, create_sector_indexes
+
+st.set_page_config(layout="wide")
 
 # Load data
 @st.cache_data
@@ -60,14 +62,77 @@ def build_indexes(df):
     else:
         regional_combined_df = pd.DataFrame()
 
-    return all_indexes, combined_df, regional_indexes, regional_combined_df
+    # Sector indexes
+    sector_indexes = create_sector_indexes(df)
+
+    if len(sector_indexes) > 0:
+        first_sector = list(sector_indexes.keys())[0]
+        sector_combined_df = sector_indexes[first_sector].copy()
+        sector_combined_df.rename(columns={'Index_Value': first_sector}, inplace=True)
+
+        for sector in list(sector_indexes.keys())[1:]:
+            temp_df = sector_indexes[sector].copy()
+            temp_df.rename(columns={'Index_Value': sector}, inplace=True)
+            sector_combined_df = sector_combined_df.merge(temp_df, on='Date', how='outer')
+
+        sector_combined_df = sector_combined_df.sort_values('Date')
+        sector_combined_df = sector_combined_df.ffill()
+    else:
+        sector_combined_df = pd.DataFrame()
+
+    return all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes, sector_combined_df
 
 # Load data
 df = load_data()
-all_indexes, combined_df, regional_indexes, regional_combined_df = build_indexes(df)
+all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes, sector_combined_df = build_indexes(df)
 
 # Streamlit Dashboard
 st.title('Commodity Index Dashboard')
+
+# Sector Performance Chart
+st.subheader('Main Sector Performance')
+
+if not sector_combined_df.empty:
+    # Filter to start from 2025-01-01
+    sector_filtered = sector_combined_df[sector_combined_df['Date'] >= '2025-01-01'].copy()
+
+    fig_sectors = go.Figure()
+
+    # Get all sectors and plot them normalized to base 100
+    sectors = [col for col in sector_filtered.columns if col != 'Date']
+
+    for sector in sectors:
+        sector_data = sector_filtered[['Date', sector]].dropna()
+        # Normalize to base 100 from the start of the filtered period
+        sector_data['Normalized'] = (sector_data[sector] / sector_data[sector].iloc[0]) * 100
+
+        fig_sectors.add_trace(go.Scatter(
+            x=sector_data['Date'],
+            y=sector_data['Normalized'],
+            mode='lines',
+            name=sector,
+            line=dict(width=2)
+        ))
+
+    fig_sectors.update_layout(
+        xaxis_title='Date',
+        yaxis_title='Index Value (Base = 100)',
+        hovermode='x unified',
+        template='plotly_white',
+        height=500,
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='center',
+            x=0.5,
+            font=dict(size=12)
+        )
+    )
+
+    st.plotly_chart(fig_sectors, use_container_width=True)
+
+st.divider()
 
 # Summary Table - Largest Swings
 st.subheader('Largest Index Swings')
@@ -76,45 +141,60 @@ summary_data = []
 for group in all_indexes.keys():
     index_data = combined_df[group].dropna()
 
-    change_1d = ((index_data.iloc[-1] / index_data.iloc[-2]) - 1) * 100 if len(index_data) >= 2 else 0
     change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100 if len(index_data) >= 6 else 0
-    change_15d = ((index_data.iloc[-1] / index_data.iloc[-16]) - 1) * 100 if len(index_data) >= 16 else 0
+    change_10d = ((index_data.iloc[-1] / index_data.iloc[-11]) - 1) * 100 if len(index_data) >= 11 else 0
+    change_50d = ((index_data.iloc[-1] / index_data.iloc[-51]) - 1) * 100 if len(index_data) >= 51 else 0
+    change_150d = ((index_data.iloc[-1] / index_data.iloc[-151]) - 1) * 100 if len(index_data) >= 151 else 0
 
     summary_data.append({
         'Group': group,
-        '1D Change (%)': round(change_1d, 2),
         '5D Change (%)': round(change_5d, 2),
-        '15D Change (%)': round(change_15d, 2),
-        '1D Abs Swing': round(abs(change_1d), 2),
+        '10D Change (%)': round(change_10d, 2),
+        '50D Change (%)': round(change_50d, 2),
+        '150D Change (%)': round(change_150d, 2),
         '5D Abs Swing': round(abs(change_5d), 2),
-        '15D Abs Swing': round(abs(change_15d), 2)
+        '10D Abs Swing': round(abs(change_10d), 2),
+        '50D Abs Swing': round(abs(change_50d), 2),
+        '150D Abs Swing': round(abs(change_150d), 2)
     })
 
 summary_df = pd.DataFrame(summary_data)
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
+
+def color_negative_red(val):
+    color = 'red' if val < 0 else 'green' if val > 0 else 'black'
+    return f'color: {color}'
 
 with col1:
-    st.write("**Top 10 - Largest 1D Swings**")
-    top_1d = summary_df.sort_values('1D Abs Swing', ascending=False).head(10)
+    st.write("**Top 10 - Largest 5D Swings**")
+    top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_1d[['Group', '1D Change (%)']],
+        top_5d[['Group', '5D Change (%)']].style.applymap(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 
 with col2:
-    st.write("**Top 10 - Largest 5D Swings**")
-    top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(10)
+    st.write("**Top 10 - Largest 10D Swings**")
+    top_10d = summary_df.sort_values('10D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_5d[['Group', '5D Change (%)']],
+        top_10d[['Group', '10D Change (%)']].style.applymap(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 
 with col3:
-    st.write("**Top 10 - Largest 15D Swings**")
-    top_15d = summary_df.sort_values('15D Abs Swing', ascending=False).head(10)
+    st.write("**Top 10 - Largest 50D Swings**")
+    top_50d = summary_df.sort_values('50D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_15d[['Group', '15D Change (%)']],
+        top_50d[['Group', '50D Change (%)']].style.applymap(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
+        hide_index=True
+    )
+
+with col4:
+    st.write("**Top 10 - Largest 150D Swings**")
+    top_150d = summary_df.sort_values('150D Abs Swing', ascending=False).head(10)
+    st.dataframe(
+        top_150d[['Group', '150D Change (%)']].style.applymap(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 

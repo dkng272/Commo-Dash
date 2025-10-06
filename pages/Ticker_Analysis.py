@@ -629,26 +629,57 @@ if ticker_data:
             )
 
             if not merged_spread.empty:
-                # Add shaded area
-                fig_combined.add_trace(go.Scatter(
-                    x=merged_spread['Date'],
-                    y=merged_spread['Output'],
-                    mode='lines',
-                    line=dict(width=0),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ), row=1, col=1)
+                # Split into positive and negative spread segments
+                merged_spread['Spread'] = merged_spread['Output'] - merged_spread['Input']
+                merged_spread['Sign'] = (merged_spread['Spread'] >= 0).astype(int)
+                merged_spread['Group'] = (merged_spread['Sign'] != merged_spread['Sign'].shift()).cumsum()
 
-                fig_combined.add_trace(go.Scatter(
-                    x=merged_spread['Date'],
-                    y=merged_spread['Input'],
-                    mode='lines',
-                    line=dict(width=0),
-                    fill='tonexty',
-                    fillcolor='rgba(0, 176, 246, 0.2)',
-                    showlegend=False,
-                    hoverinfo='skip'
-                ), row=1, col=1)
+                # Plot each continuous segment
+                for group_id in merged_spread['Group'].unique():
+                    segment = merged_spread[merged_spread['Group'] == group_id].copy()
+
+                    if segment['Spread'].iloc[0] >= 0:
+                        # Positive spread - blue
+                        fig_combined.add_trace(go.Scatter(
+                            x=segment['Date'],
+                            y=segment['Output'],
+                            mode='lines',
+                            line=dict(width=0),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ), row=1, col=1)
+
+                        fig_combined.add_trace(go.Scatter(
+                            x=segment['Date'],
+                            y=segment['Input'],
+                            mode='lines',
+                            line=dict(width=0),
+                            fill='tonexty',
+                            fillcolor='rgba(0, 176, 246, 0.2)',
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ), row=1, col=1)
+                    else:
+                        # Negative spread - red
+                        fig_combined.add_trace(go.Scatter(
+                            x=segment['Date'],
+                            y=segment['Input'],
+                            mode='lines',
+                            line=dict(width=0),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ), row=1, col=1)
+
+                        fig_combined.add_trace(go.Scatter(
+                            x=segment['Date'],
+                            y=segment['Output'],
+                            mode='lines',
+                            line=dict(width=0),
+                            fill='tonexty',
+                            fillcolor='rgba(255, 0, 0, 0.2)',
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ), row=1, col=1)
 
         # Add spread line to 2nd subplot
         spread_data = None

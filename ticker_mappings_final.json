@@ -13,7 +13,13 @@
       {
         "group": "Pangaseus",
         "region": "Vietnam",
-        "item": "ANV_Total_Value",
+        "item": "ANV_China_ASP",
+        "sensitivity": null
+      },
+      {
+        "group": "Pangaseus",
+        "region": "Vietnam",
+        "item": "ANV_USA_ASP",
         "sensitivity": null
       }
     ]
@@ -566,20 +572,20 @@
     ],
     "outputs": [
       {
-        "group": null,
-        "region": null,
+        "group": "Hog",
+        "region": "Vietnam",
         "item": "Hog_corporate_20k_South",
         "sensitivity": null
       },
       {
-        "group": null,
-        "region": null,
+        "group": "Hog",
+        "region": "Vietnam",
         "item": "Hog_corporate_North",
         "sensitivity": null
       },
       {
-        "group": null,
-        "region": null,
+        "group": "Hog",
+        "region": "Vietnam",
         "item": "Hog_corporate_South",
         "sensitivity": null
       }
@@ -834,15 +840,15 @@
     ],
     "outputs": [
       {
-        "group": null,
-        "region": null,
+        "group": "Pangaseus",
+        "region": "Vietnam",
         "item": "VHC_USA_ASP",
         "sensitivity": null
       },
       {
-        "group": null,
-        "region": null,
-        "item": "VHC_Total_Value",
+        "group": "Pangaseus",
+        "region": "Vietnam",
+        "item": "VHC_Total_ASP",
         "sensitivity": null
       }
     ]
