@@ -84,16 +84,8 @@ duplicates = final_df[final_df.duplicated(subset=['Date', 'Ticker'], keep=False)
 duplicates = duplicates.sort_values(['Date', 'Ticker'])
 final_df = final_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
 
-# #%% Tester
-# for group in classification.Group.unique():
-#     print(f"Group: {group}")
-#     print('Tickers classified in the db:')
-#     print(final_df[final_df['Group'] == group]['Ticker'].unique())
-#     print('Tickers in the classification list:')
-#     print(classification[classification['Group'] == group]['Item'].unique())
-#     print("\n")
 
-final_df.to_csv('data/cleaned_data.csv', index=False)
+# final_df.to_csv('data/cleaned_data.csv', index=False)
 
 #%% Ticker list analysis
 all_ticker_list = final_df.Ticker.unique().tolist()

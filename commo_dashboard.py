@@ -166,10 +166,6 @@ def create_regional_indexes(df, base_value=100):
         region = row['Region']
         key = f"{group} - {region}"
 
-        # Skip Pangaseus
-        if group == 'Pangaseus':
-            continue
-
         # Filter for this group-region combination
         region_df = df[(df['Group'] == group) & (df['Region'] == region)].copy()
         region_df = region_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')

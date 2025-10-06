@@ -197,19 +197,18 @@
   },
   {
     "ticker": "DDV",
-    "inputs": [
-      {
-        "group": "P4 Rock",
-        "region": "China",
-        "item": "Phosphate rock",
-        "sensitivity": null
-      }
-    ],
+    "inputs": [],
     "outputs": [
       {
         "group": "DAP",
         "region": "Vietnam",
         "item": "DAP_DinhVu_61",
+        "sensitivity": null
+      },
+      {
+        "group": "DAP",
+        "region": null,
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -227,8 +226,8 @@
     "outputs": [
       {
         "group": "Yellow P4",
-        "region": "Vietnam",
-        "item": "Yellow phosphorus - DGC",
+        "region": null,
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -492,9 +491,9 @@
     ],
     "outputs": [
       {
-        "group": null,
-        "region": null,
-        "item": "IDI_Total_Value",
+        "group": "Pangaseus",
+        "region": "Vietnam",
+        "item": null,
         "sensitivity": null
       }
     ]

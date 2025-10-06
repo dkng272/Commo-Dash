@@ -1,24 +1,39 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import json
 from commo_dashboard import create_equal_weight_index, create_weighted_index, create_regional_indexes, create_sector_indexes
+from classification_loader import load_data_with_classification
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
 
-# Load data
+# Force light theme
+st.markdown("""
+    <style>
+        [data-testid="stAppViewContainer"] {
+            background-color: white;
+            color: black;
+        }
+        [data-testid="stSidebar"] {
+            background-color: #f0f2f6;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Load data with dynamic classification
 @st.cache_data
 def load_data():
-    df = pd.read_csv('data/cleaned_data.csv')
-    df['Date'] = pd.to_datetime(df['Date'])
+    df = load_data_with_classification('data/cleaned_data.csv')
     return df
 
 @st.cache_data
 def build_indexes(df):
-    all_groups = df['Group'].unique()
+    # Exclude NaN groups (unclassified tickers used for ticker-specific input/output)
+    all_groups = df['Group'].dropna().unique()
     all_indexes = {}
 
     for group in all_groups:
-        if group not in ['Pangaseus', 'Crack Spread']:
+        if group != 'Crack Spread':
             all_indexes[group] = create_equal_weight_index(df, group)
 
     # Handle Crack Spread separately
@@ -82,6 +97,119 @@ def build_indexes(df):
 
     return all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes, sector_combined_df
 
+def get_index_data(item, group, region, df, all_indexes, regional_indexes):
+    """Get price data for an item with fallback to regional/group index"""
+    if item and item.strip():
+        item_data = df[df['Ticker'] == item].copy()
+        if not item_data.empty:
+            return item_data[['Date', 'Price']].sort_values('Date')
+
+    if region and region.strip() and region.lower() != 'nan' and region.lower() != 'none':
+        key = f"{group} - {region}"
+        if key in regional_indexes:
+            index_df = regional_indexes[key].copy()
+            index_df.rename(columns={'Index_Value': 'Price'}, inplace=True)
+            return index_df
+
+    if group and group in all_indexes:
+        index_df = all_indexes[group].copy()
+        index_df.rename(columns={'Index_Value': 'Price'}, inplace=True)
+        return index_df
+
+    return None
+
+def create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_value=100):
+    """Create equal-weighted index from multiple items"""
+    all_prices = []
+
+    for item_info in items_list:
+        item_data = get_index_data(
+            item_info['item'], item_info['group'], item_info['region'],
+            df, all_indexes, regional_indexes
+        )
+
+        if item_data is not None and not item_data.empty:
+            item_data = item_data.copy()
+            item_name = f"{item_info.get('item', item_info['group'])}_Price"
+            item_data = item_data.rename(columns={'Price': item_name})
+            all_prices.append(item_data.set_index('Date'))
+
+    if not all_prices:
+        return None
+
+    combined = pd.concat(all_prices, axis=1)
+    returns = combined.pct_change(fill_method=None)
+    avg_returns = returns.mean(axis=1, skipna=True)
+    index_values = (1 + avg_returns).cumprod() * base_value
+    index_values.iloc[0] = base_value
+
+    return pd.DataFrame({'Date': index_values.index, 'Price': index_values.values}).reset_index(drop=True)
+
+@st.cache_data
+def calculate_all_ticker_spreads(_df, _all_indexes, _regional_indexes, ticker_mapping):
+    """Vectorized calculation of spreads for all tickers"""
+    spread_data = []
+
+    for ticker_info in ticker_mapping:
+        ticker = ticker_info['ticker']
+
+        # Get input data
+        input_data = None
+        if ticker_info.get('inputs'):
+            if len(ticker_info['inputs']) > 1:
+                input_data = create_aggregated_index(ticker_info['inputs'], _df, _all_indexes, _regional_indexes)
+            else:
+                input_data = get_index_data(
+                    ticker_info['inputs'][0]['item'],
+                    ticker_info['inputs'][0]['group'],
+                    ticker_info['inputs'][0]['region'],
+                    _df, _all_indexes, _regional_indexes
+                )
+
+        # Get output data
+        output_data = None
+        if ticker_info.get('outputs'):
+            if len(ticker_info['outputs']) > 1:
+                output_data = create_aggregated_index(ticker_info['outputs'], _df, _all_indexes, _regional_indexes)
+            else:
+                output_data = get_index_data(
+                    ticker_info['outputs'][0]['item'],
+                    ticker_info['outputs'][0]['group'],
+                    ticker_info['outputs'][0]['region'],
+                    _df, _all_indexes, _regional_indexes
+                )
+
+        # Calculate percentage changes
+        input_5d = input_10d = input_50d = input_150d = 0
+        output_5d = output_10d = output_50d = output_150d = 0
+
+        if input_data is not None and not input_data.empty:
+            input_data = input_data.sort_values('Date').reset_index(drop=True)
+            latest = input_data['Price'].iloc[-1]
+            input_5d = ((latest - input_data['Price'].iloc[-6]) / input_data['Price'].iloc[-6] * 100) if len(input_data) > 5 else 0
+            input_10d = ((latest - input_data['Price'].iloc[-11]) / input_data['Price'].iloc[-11] * 100) if len(input_data) > 10 else 0
+            input_50d = ((latest - input_data['Price'].iloc[-51]) / input_data['Price'].iloc[-51] * 100) if len(input_data) > 50 else 0
+            input_150d = ((latest - input_data['Price'].iloc[-151]) / input_data['Price'].iloc[-151] * 100) if len(input_data) > 150 else 0
+
+        if output_data is not None and not output_data.empty:
+            output_data = output_data.sort_values('Date').reset_index(drop=True)
+            latest = output_data['Price'].iloc[-1]
+            output_5d = ((latest - output_data['Price'].iloc[-6]) / output_data['Price'].iloc[-6] * 100) if len(output_data) > 5 else 0
+            output_10d = ((latest - output_data['Price'].iloc[-11]) / output_data['Price'].iloc[-11] * 100) if len(output_data) > 10 else 0
+            output_50d = ((latest - output_data['Price'].iloc[-51]) / output_data['Price'].iloc[-51] * 100) if len(output_data) > 50 else 0
+            output_150d = ((latest - output_data['Price'].iloc[-151]) / output_data['Price'].iloc[-151] * 100) if len(output_data) > 150 else 0
+
+        # Calculate spreads
+        spread_data.append({
+            'Ticker': ticker,
+            'Spread_5D': output_5d - input_5d,
+            'Spread_10D': output_10d - input_10d,
+            'Spread_50D': output_50d - input_50d,
+            'Spread_150D': output_150d - input_150d
+        })
+
+    return pd.DataFrame(spread_data)
+
 # Load data
 df = load_data()
 all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes, sector_combined_df = build_indexes(df)
@@ -89,53 +217,78 @@ all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes
 # Streamlit Dashboard
 st.title('Commodity Index Dashboard')
 
-# Sector Performance Chart
-st.subheader('Main Sector Performance')
+st.divider()
 
-if not sector_combined_df.empty:
-    # Filter to start from 2025-01-01
-    sector_filtered = sector_combined_df[sector_combined_df['Date'] >= '2025-01-01'].copy()
+# Stock Spread Table
+# Toggle between best benefited and worst hit
+show_worst = st.checkbox('Show Worst Hit Stocks', value=False)
 
-    fig_sectors = go.Figure()
+if show_worst:
+    st.subheader('Top 10 - Worst Hit Stocks by Spread')
+else:
+    st.subheader('Top 10 - Best Benefited Stocks by Spread')
 
-    # Get all sectors and plot them normalized to base 100
-    sectors = [col for col in sector_filtered.columns if col != 'Date']
+# Load ticker mappings and calculate spreads
+with open('ticker_mappings_final.json', 'r') as f:
+    ticker_mapping = json.load(f)
 
-    for sector in sectors:
-        sector_data = sector_filtered[['Date', sector]].dropna()
-        # Normalize to base 100 from the start of the filtered period
-        sector_data['Normalized'] = (sector_data[sector] / sector_data[sector].iloc[0]) * 100
+spreads_df = calculate_all_ticker_spreads(df, all_indexes, regional_indexes, ticker_mapping)
 
-        fig_sectors.add_trace(go.Scatter(
-            x=sector_data['Date'],
-            y=sector_data['Normalized'],
-            mode='lines',
-            name=sector,
-            line=dict(width=2)
-        ))
+# Create 4-column layout
+col1, col2, col3, col4 = st.columns(4)
 
-    fig_sectors.update_layout(
-        xaxis_title='Date',
-        yaxis_title='Index Value (Base = 100)',
-        hovermode='x unified',
-        template='plotly_white',
-        height=500,
-        legend=dict(
-            orientation='h',
-            yanchor='bottom',
-            y=1.02,
-            xanchor='center',
-            x=0.5,
-            font=dict(size=12)
-        )
+def color_spread(val):
+    color = 'red' if val < 0 else 'green' if val > 0 else 'black'
+    return f'color: {color}'
+
+with col1:
+    st.write("**5D Spread**")
+    if show_worst:
+        top_5d = spreads_df.nsmallest(10, 'Spread_5D')[['Ticker', 'Spread_5D']]
+    else:
+        top_5d = spreads_df.nlargest(10, 'Spread_5D')[['Ticker', 'Spread_5D']]
+    st.dataframe(
+        top_5d.style.map(color_spread, subset=['Spread_5D']).format({'Spread_5D': '{:.2f}'}),
+        hide_index=True
     )
 
-    st.plotly_chart(fig_sectors, use_container_width=True)
+with col2:
+    st.write("**10D Spread**")
+    if show_worst:
+        top_10d = spreads_df.nsmallest(10, 'Spread_10D')[['Ticker', 'Spread_10D']]
+    else:
+        top_10d = spreads_df.nlargest(10, 'Spread_10D')[['Ticker', 'Spread_10D']]
+    st.dataframe(
+        top_10d.style.map(color_spread, subset=['Spread_10D']).format({'Spread_10D': '{:.2f}'}),
+        hide_index=True
+    )
+
+with col3:
+    st.write("**50D Spread**")
+    if show_worst:
+        top_50d = spreads_df.nsmallest(10, 'Spread_50D')[['Ticker', 'Spread_50D']]
+    else:
+        top_50d = spreads_df.nlargest(10, 'Spread_50D')[['Ticker', 'Spread_50D']]
+    st.dataframe(
+        top_50d.style.map(color_spread, subset=['Spread_50D']).format({'Spread_50D': '{:.2f}'}),
+        hide_index=True
+    )
+
+with col4:
+    st.write("**150D Spread**")
+    if show_worst:
+        top_150d = spreads_df.nsmallest(10, 'Spread_150D')[['Ticker', 'Spread_150D']]
+    else:
+        top_150d = spreads_df.nlargest(10, 'Spread_150D')[['Ticker', 'Spread_150D']]
+    st.dataframe(
+        top_150d.style.map(color_spread, subset=['Spread_150D']).format({'Spread_150D': '{:.2f}'}),
+        hide_index=True
+    )
 
 st.divider()
 
 # Summary Table - Largest Swings
-st.subheader('Largest Index Swings')
+st.subheader('Top 10 - Largest Index Swings')
 
 summary_data = []
 for group in all_indexes.keys():
@@ -167,34 +320,34 @@ def color_negative_red(val):
     return f'color: {color}'
 
 with col1:
-    st.write("**Top 10 - Largest 5D Swings**")
+    st.write("**5D Swings**")
     top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_5d[['Group', '5D Change (%)']].style.applymap(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
+        top_5d[['Group', '5D Change (%)']].style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 
 with col2:
-    st.write("**Top 10 - Largest 10D Swings**")
+    st.write("**10D Swings**")
     top_10d = summary_df.sort_values('10D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_10d[['Group', '10D Change (%)']].style.applymap(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
+        top_10d[['Group', '10D Change (%)']].style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 
 with col3:
-    st.write("**Top 10 - Largest 50D Swings**")
+    st.write("**50D Swings**")
     top_50d = summary_df.sort_values('50D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_50d[['Group', '50D Change (%)']].style.applymap(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
+        top_50d[['Group', '50D Change (%)']].style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 
 with col4:
-    st.write("**Top 10 - Largest 150D Swings**")
+    st.write("**150D Swings**")
     top_150d = summary_df.sort_values('150D Abs Swing', ascending=False).head(10)
     st.dataframe(
-        top_150d[['Group', '150D Change (%)']].style.applymap(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
+        top_150d[['Group', '150D Change (%)']].style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
         hide_index=True
     )
 

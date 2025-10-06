@@ -62,7 +62,8 @@ Commo Dash/
 - Uses same methodology as group indexes with `skipna=True` for NA handling
 
 **Important**:
-- Excludes "Pangaseus" group
+- Only excludes "Crack Spread" group (special absolute value handling)
+- Pangaseus is now included in all index calculations
 - Uses `pct_change(fill_method=None)` and `.ffill()` (deprecation fixes)
 
 ---
@@ -93,6 +94,9 @@ stock_df = fetch_historical_price('HPG', '2024-01-01')
 - **Always uses aggregated indexes** for multiple inputs/outputs
 - Inputs: Negative changes marked (rising input = margin pressure)
 - Outputs: Positive changes marked (rising output = margin expansion)
+- **Spread Row**: Bold with color coding (red if negative, green if positive)
+  - Treats None values as 0 in calculation
+  - Formula: Spread = (Output % or 0) - (Input % or 0)
 - Caption explains equal-weighted aggregation methodology
 
 #### Input/Output Charts
@@ -101,6 +105,7 @@ stock_df = fetch_historical_price('HPG', '2024-01-01')
 - Line widths: All set to `width=2` for consistency
 - Shows data source names in tables (5D/10D/50D/150D % changes)
 - Number formatting: 2 decimal places
+- **Legend Position**: Horizontal at top (yanchor='bottom', y=1.02) for better space utilization
 
 #### Combined View (3-Panel Subplot)
 - **Panel 1 (45%)**: Commodity Inputs vs Outputs
@@ -173,11 +178,13 @@ Specific Item → Regional Index → Group Index → None
 
 **Features**:
 
-#### Sector Performance Chart (Top of Page)
-- Shows all 9 sectors on single chart
-- Normalized to base 100 starting from 2025-01-01
-- Horizontal legend at top for space efficiency
-- Quick visual comparison of sector trends
+#### Best Benefited/Worst Hit Stocks Table (Top of Page)
+- Vectorized calculation of spreads across all 57 tickers
+- Toggle checkbox to switch between "Best Benefited" (default) and "Worst Hit" stocks
+- 4 columns showing top 10 stocks: 5D, 10D, 50D, 150D spreads
+- Color-coded: Green (positive spread), Red (negative spread)
+- Cached for performance using `@st.cache_data`
+- Spread = Output % - Input % (treating None as 0)
 
 #### Largest Index Swings Tables
 - 4 columns: 5D, 10D, 50D, 150D
@@ -411,19 +418,42 @@ streamlit run dashboard_app.py
 
 ---
 
+## Recent Updates (Latest Session)
+
+### 1. Pangaseus Inclusion
+- **Changed**: Removed Pangaseus exclusion from all index calculations
+- **Files Updated**:
+  - `dashboard_app.py`: Changed from `if group not in ['Pangaseus', 'Crack Spread']` to `if group != 'Crack Spread'`
+  - `pages/Ticker_Analysis.py`: Same change
+  - `pages/Correlation_Matrix.py`: Same change
+  - `pages/_Custom_Ticker_Correlation.py.disabled`: Same change
+  - `commo_dashboard.py`: Removed Pangaseus skip in `create_regional_indexes()`
+- **Result**: Pangaseus now included normally in all indexes; only Crack Spread has special handling
+
+### 2. Spread Row in Summary Metrics
+- **Added**: Spread calculation row to Ticker Analysis summary table
+- **Features**: Bold text, color-coded (green for positive, red for negative)
+- **Calculation**: Treats None values as 0, calculates (Output % or 0) - (Input % or 0)
+
+### 3. Best Benefited/Worst Hit Stocks Table
+- **Added**: Vectorized stock spread analysis on dashboard front page
+- **Features**:
+  - Toggle between Best Benefited (default) and Worst Hit stocks
+  - 4 columns: 5D, 10D, 50D, 150D periods
+  - Top 10 stocks per period
+  - Color-coded spreads
+  - Cached for performance
+
+---
+
 ## Future Enhancements
 
-### Phase 1: Summary Table for All Tickers
-- Use `calculate_ticker_summary()` in a loop
-- Display all tickers with their Input/Output changes
-- Sortable/filterable table
-
-### Phase 2: Lead-Lag Analysis
+### Phase 1: Lead-Lag Analysis
 - Does commodity movement lead stock by N days?
 - Cross-correlation with lags
 - Optimal lag period identification
 
-### Phase 3: Alert System
+### Phase 2: Alert System
 - Monitor spread divergence from MA20
 - Notify when correlation breaks down
 - Flag unusual margin compression/expansion

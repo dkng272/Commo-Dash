@@ -12,16 +12,16 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 from commo_dashboard import create_equal_weight_index, create_regional_indexes
 from ssi_api import fetch_historical_price
+from classification_loader import load_data_with_classification
 
 # Global start date for all data on this page
 GLOBAL_START_DATE = '2024-01-01'
 
-# Load data
+# Load data with dynamic classification
 @st.cache_data
 def load_data():
     data_path = os.path.join(parent_dir, 'data', 'cleaned_data.csv')
-    df = pd.read_csv(data_path)
-    df['Date'] = pd.to_datetime(df['Date'])
+    df = load_data_with_classification(data_path)
     # Filter to global start date
     df = df[df['Date'] >= GLOBAL_START_DATE]
     return df
@@ -35,11 +35,12 @@ def load_ticker_mapping():
 @st.cache_data
 def build_indexes(df):
     """Build both group-level and regional indexes"""
-    all_groups = df['Group'].unique()
+    # Exclude NaN groups (unclassified tickers used for ticker-specific input/output)
+    all_groups = df['Group'].dropna().unique()
     all_indexes = {}
 
     for group in all_groups:
-        if group not in ['Pangaseus', 'Crack Spread']:
+        if group != 'Crack Spread':
             all_indexes[group] = create_equal_weight_index(df, group)
 
     # Handle Crack Spread separately
@@ -67,9 +68,9 @@ def get_index_data(item, group, region, df, all_indexes, regional_indexes):
     # Try to use specific item data first
     if item and item.strip():
         item_data = df[df['Ticker'] == item].copy()
-        if not item_data.empty:
+        if not item_data.empty and item_data['Price'].notna().any():
             return item_data[['Date', 'Price']].sort_values('Date'), item
-        # If item specified but not found, continue to fallback
+        # If item specified but not found or has no valid prices, continue to fallback
 
     # Fall back to regional index
     if region and region.strip() and region.lower() != 'nan' and region.lower() != 'none':
@@ -316,13 +317,28 @@ if ticker_data:
     # Display summary table at the top
     summary = calculate_ticker_summary(selected_ticker, ticker_data, df, all_indexes, regional_indexes, aggregate_items)
 
+    # Calculate spread (Output - Input), treating None as 0
+    spread_5d = (summary['Output_5D'] or 0) - (summary['Input_5D'] or 0)
+    spread_10d = (summary['Output_10D'] or 0) - (summary['Input_10D'] or 0)
+    spread_50d = (summary['Output_50D'] or 0) - (summary['Input_50D'] or 0)
+    spread_150d = (summary['Output_150D'] or 0) - (summary['Input_150D'] or 0)
+
     summary_display = pd.DataFrame({
-        'Metric': ['Input', 'Output'],
-        '5D %': [summary['Input_5D'], summary['Output_5D']],
-        '10D %': [summary['Input_10D'], summary['Output_10D']],
-        '50D %': [summary['Input_50D'], summary['Output_50D']],
-        '150D %': [summary['Input_150D'], summary['Output_150D']]
+        'Metric': ['Input', 'Output', 'Spread'],
+        '5D %': [summary['Input_5D'], summary['Output_5D'], spread_5d],
+        '10D %': [summary['Input_10D'], summary['Output_10D'], spread_10d],
+        '50D %': [summary['Input_50D'], summary['Output_50D'], spread_50d],
+        '150D %': [summary['Input_150D'], summary['Output_150D'], spread_150d]
     })
+
+    def color_metrics(row):
+        if row.name == 0:  # Input row (index 0) - negative = green (cost down), positive = red (cost up)
+            return [''] + ['color: green' if val is not None and val < 0 else 'color: red' if val is not None and val > 0 else '' for val in row[1:]]
+        elif row.name == 1:  # Output row (index 1) - positive = green (revenue up), negative = red (revenue down)
+            return [''] + ['color: green' if val is not None and val > 0 else 'color: red' if val is not None and val < 0 else '' for val in row[1:]]
+        elif row.name == 2:  # Spread row (index 2) - bold with color
+            return ['font-weight: bold'] + ['font-weight: bold; color: red' if val is not None and val < 0 else 'font-weight: bold; color: green' if val is not None and val > 0 else 'font-weight: bold' for val in row[1:]]
+        return [''] * len(row)
 
     st.subheader('Summary Metrics')
     st.dataframe(summary_display.style.format({
@@ -330,7 +346,7 @@ if ticker_data:
         '10D %': '{:.2f}',
         '50D %': '{:.2f}',
         '150D %': '{:.2f}'
-    }, na_rep='-'), hide_index=True)
+    }, na_rep='-').apply(color_metrics, axis=1), hide_index=True)
     st.caption('*Note: For multiple inputs/outputs, metrics are calculated using equal-weighted aggregated index*')
     st.divider()
 
@@ -382,12 +398,19 @@ if ticker_data:
                 })
 
         input_df = pd.DataFrame(input_items)
+
+        def color_input(val):
+            # For inputs: negative = green (cost down), positive = red (cost up)
+            if val is None or pd.isna(val):
+                return ''
+            return 'color: green' if val < 0 else 'color: red' if val > 0 else ''
+
         st.dataframe(input_df.style.format({
             '5D %': '{:.2f}',
             '10D %': '{:.2f}',
             '50D %': '{:.2f}',
             '150D %': '{:.2f}'
-        }, na_rep='-'), hide_index=True)
+        }, na_rep='-').map(color_input, subset=['5D %', '10D %', '50D %', '150D %']), hide_index=True)
 
         # Plot input commodities
         st.write("**Input Commodity Prices**")
@@ -397,30 +420,35 @@ if ticker_data:
             # Create aggregated index for all inputs
             aggregated_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
             if aggregated_data is not None and not aggregated_data.empty:
-                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
+                # Normalize using first valid price
+                first_valid_price = aggregated_data['Price'].dropna().iloc[0] if aggregated_data['Price'].notna().any() else None
+                if first_valid_price:
+                    aggregated_data['Normalized'] = (aggregated_data['Price'] / first_valid_price) * 100
 
-                fig_inputs.add_trace(go.Scatter(
-                    x=aggregated_data['Date'],
-                    y=aggregated_data['Normalized'],
-                    mode='lines',
-                    name='Aggregated Input Index',
-                    line=dict(width=2)
-                ))
+                    fig_inputs.add_trace(go.Scatter(
+                        x=aggregated_data['Date'],
+                        y=aggregated_data['Normalized'],
+                        mode='lines',
+                        name='Aggregated Input Index',
+                        line=dict(width=2)
+                    ))
         else:
             # Show individual items
             for inp in ticker_data['inputs']:
                 item_data, display_name = get_index_data(inp['item'], inp['group'], inp['region'], df, all_indexes, regional_indexes)
                 if item_data is not None and not item_data.empty:
-                    # Normalize to base 100
-                    item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
+                    # Normalize to base 100 using first valid price
+                    first_valid_price = item_data['Price'].dropna().iloc[0] if item_data['Price'].notna().any() else None
+                    if first_valid_price:
+                        item_data['Normalized'] = (item_data['Price'] / first_valid_price) * 100
 
-                    fig_inputs.add_trace(go.Scatter(
-                        x=item_data['Date'],
-                        y=item_data['Normalized'],
-                        mode='lines',
-                        name=display_name,
-                        line=dict(width=2)
-                    ))
+                        fig_inputs.add_trace(go.Scatter(
+                            x=item_data['Date'],
+                            y=item_data['Normalized'],
+                            mode='lines',
+                            name=display_name,
+                            line=dict(width=2)
+                        ))
 
         fig_inputs.update_layout(
             xaxis_title='Date',
@@ -491,12 +519,19 @@ if ticker_data:
                 })
 
         output_df = pd.DataFrame(output_items)
+
+        def color_output(val):
+            # For outputs: positive = green (revenue up), negative = red (revenue down)
+            if val is None or pd.isna(val):
+                return ''
+            return 'color: green' if val > 0 else 'color: red' if val < 0 else ''
+
         st.dataframe(output_df.style.format({
             '5D %': '{:.2f}',
             '10D %': '{:.2f}',
             '50D %': '{:.2f}',
             '150D %': '{:.2f}'
-        }, na_rep='-'), hide_index=True)
+        }, na_rep='-').map(color_output, subset=['5D %', '10D %', '50D %', '150D %']), hide_index=True)
 
         # Plot output commodities
         st.write("**Output Commodity Prices**")
@@ -506,30 +541,35 @@ if ticker_data:
             # Create aggregated index for all outputs
             aggregated_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
             if aggregated_data is not None and not aggregated_data.empty:
-                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
+                # Normalize using first valid price
+                first_valid_price = aggregated_data['Price'].dropna().iloc[0] if aggregated_data['Price'].notna().any() else None
+                if first_valid_price:
+                    aggregated_data['Normalized'] = (aggregated_data['Price'] / first_valid_price) * 100
 
-                fig_outputs.add_trace(go.Scatter(
-                    x=aggregated_data['Date'],
-                    y=aggregated_data['Normalized'],
-                    mode='lines',
-                    name='Aggregated Output Index',
-                    line=dict(width=2)
-                ))
+                    fig_outputs.add_trace(go.Scatter(
+                        x=aggregated_data['Date'],
+                        y=aggregated_data['Normalized'],
+                        mode='lines',
+                        name='Aggregated Output Index',
+                        line=dict(width=2)
+                    ))
         else:
             # Show individual items
             for out in ticker_data['outputs']:
                 item_data, display_name = get_index_data(out['item'], out['group'], out['region'], df, all_indexes, regional_indexes)
                 if item_data is not None and not item_data.empty:
-                    # Normalize to base 100
-                    item_data['Normalized'] = (item_data['Price'] / item_data['Price'].iloc[0]) * 100
+                    # Normalize to base 100 using first valid price
+                    first_valid_price = item_data['Price'].dropna().iloc[0] if item_data['Price'].notna().any() else None
+                    if first_valid_price:
+                        item_data['Normalized'] = (item_data['Price'] / first_valid_price) * 100
 
-                    fig_outputs.add_trace(go.Scatter(
-                        x=item_data['Date'],
-                        y=item_data['Normalized'],
-                        mode='lines',
-                        name=display_name,
-                        line=dict(width=2)
-                    ))
+                        fig_outputs.add_trace(go.Scatter(
+                            x=item_data['Date'],
+                            y=item_data['Normalized'],
+                            mode='lines',
+                            name=display_name,
+                            line=dict(width=2)
+                        ))
 
         fig_outputs.update_layout(
             xaxis_title='Date',
@@ -583,16 +623,19 @@ if ticker_data:
             if aggregated_data is not None and not aggregated_data.empty:
                 if 'Index_Value' in aggregated_data.columns:
                     aggregated_data = aggregated_data.rename(columns={'Index_Value': 'Price'})
-                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
-                input_normalized = aggregated_data[['Date', 'Normalized']].copy()
+                # Normalize using first valid price
+                first_valid_price = aggregated_data['Price'].dropna().iloc[0] if aggregated_data['Price'].notna().any() else None
+                if first_valid_price:
+                    aggregated_data['Normalized'] = (aggregated_data['Price'] / first_valid_price) * 100
+                    input_normalized = aggregated_data[['Date', 'Normalized']].copy()
 
-                fig_combined.add_trace(go.Scatter(
-                    x=aggregated_data['Date'],
-                    y=aggregated_data['Normalized'],
-                    mode='lines',
-                    name=input_label,
-                    line=dict(dash='dot', width=2)
-                ), row=1, col=1)
+                    fig_combined.add_trace(go.Scatter(
+                        x=aggregated_data['Date'],
+                        y=aggregated_data['Normalized'],
+                        mode='lines',
+                        name=input_label,
+                        line=dict(dash='dot', width=2)
+                    ), row=1, col=1)
 
         # Add outputs to top subplot - always aggregate
         if ticker_data['outputs']:
@@ -608,16 +651,19 @@ if ticker_data:
             if aggregated_data is not None and not aggregated_data.empty:
                 if 'Index_Value' in aggregated_data.columns:
                     aggregated_data = aggregated_data.rename(columns={'Index_Value': 'Price'})
-                aggregated_data['Normalized'] = (aggregated_data['Price'] / aggregated_data['Price'].iloc[0]) * 100
-                output_normalized = aggregated_data[['Date', 'Normalized']].copy()
+                # Normalize using first valid price
+                first_valid_price = aggregated_data['Price'].dropna().iloc[0] if aggregated_data['Price'].notna().any() else None
+                if first_valid_price:
+                    aggregated_data['Normalized'] = (aggregated_data['Price'] / first_valid_price) * 100
+                    output_normalized = aggregated_data[['Date', 'Normalized']].copy()
 
-                fig_combined.add_trace(go.Scatter(
-                    x=aggregated_data['Date'],
-                    y=aggregated_data['Normalized'],
-                    mode='lines',
-                    name=output_label,
-                    line=dict(width=2)
-                ), row=1, col=1)
+                    fig_combined.add_trace(go.Scatter(
+                        x=aggregated_data['Date'],
+                        y=aggregated_data['Normalized'],
+                        mode='lines',
+                        name=output_label,
+                        line=dict(width=2)
+                    ), row=1, col=1)
 
         # Add shaded area between input and output
         if input_normalized is not None and output_normalized is not None:
