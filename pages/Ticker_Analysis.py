@@ -91,10 +91,10 @@ def get_index_data(item, group, region, df, all_indexes, regional_indexes):
 
 def create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_value=100):
     """
-    Create an equal-weighted index from multiple items.
+    Create an index from multiple items - uses sensitivity weighting if provided, otherwise equal-weighted.
 
     Parameters:
-    - items_list: List of item dictionaries with 'item', 'group', 'region'
+    - items_list: List of item dictionaries with 'item', 'group', 'region', 'sensitivity'
     - df: Main dataframe
     - all_indexes: Group-level indexes
     - regional_indexes: Regional indexes
@@ -103,6 +103,7 @@ def create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_
     Returns: DataFrame with Date and Price columns
     """
     all_prices = []
+    sensitivities = []
 
     for item_info in items_list:
         item_data, display_name = get_index_data(
@@ -119,6 +120,7 @@ def create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_
             item_name = display_name.replace(' Index', '_Index').replace(' - ', '_')
             item_data = item_data.rename(columns={'Price': item_name})
             all_prices.append(item_data.set_index('Date'))
+            sensitivities.append(item_info.get('sensitivity'))
 
     if not all_prices:
         return None
@@ -129,12 +131,31 @@ def create_aggregated_index(items_list, df, all_indexes, regional_indexes, base_
     # Calculate returns
     returns = combined.pct_change(fill_method=None)
 
-    # Equal-weight average returns
-    avg_returns = returns.mean(axis=1, skipna=True)
+    # Check if we should use sensitivity weighting
+    use_sensitivity = any(s is not None for s in sensitivities)
+
+    if use_sensitivity:
+        # Weighted average by sensitivity
+        weights = [s if s is not None else 0 for s in sensitivities]
+        total_weight = sum(weights)
+
+        # Validate that weights sum to 1.0 (with small tolerance)
+        if abs(total_weight - 1.0) > 0.01:
+            st.warning(f"⚠️ Sensitivities sum to {total_weight:.3f}, not 1.0. Results may be scaled incorrectly.")
+
+        # Apply weights to returns (no normalization)
+        avg_returns = (returns * weights).sum(axis=1, skipna=True)
+    else:
+        # Equal-weight average (current behavior)
+        avg_returns = returns.mean(axis=1, skipna=True)
 
     # Build index
     index_values = (1 + avg_returns).cumprod() * base_value
-    index_values.iloc[0] = base_value
+
+    # Handle first value
+    first_valid_idx = index_values.first_valid_index()
+    if first_valid_idx is not None:
+        index_values.loc[first_valid_idx] = base_value
 
     result = pd.DataFrame({
         'Date': index_values.index,
@@ -305,7 +326,7 @@ st.sidebar.divider()
 aggregate_items = st.sidebar.checkbox(
     'Aggregate Multiple Items into Index',
     value=False,
-    help='When enabled, combines multiple input/output items into an equal-weighted index'
+    help='Combines multiple input/output items into a weighted index. Uses sensitivity values if provided (must sum to 1), otherwise equal-weighted.'
 )
 
 # Get ticker data
@@ -347,7 +368,7 @@ if ticker_data:
         '50D %': '{:.2f}',
         '150D %': '{:.2f}'
     }, na_rep='-').apply(color_metrics, axis=1), hide_index=True)
-    st.caption('*Note: For multiple inputs/outputs, metrics are calculated using equal-weighted aggregated index*')
+    st.caption('*Note: For multiple inputs/outputs, metrics are calculated using sensitivity-weighted index (if sensitivities provided and sum to 1) or equal-weighted index*')
     st.divider()
 
     # Display inputs

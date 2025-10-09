@@ -92,12 +92,18 @@ stock_df = fetch_historical_price('HPG', '2024-01-01')
 #### Summary Metrics Table
 - Shows 5D, 10D, 50D, 150D percentage changes
 - **Always uses aggregated indexes** for multiple inputs/outputs
+- **Sensitivity-Based Weighting**: Uses sensitivity values from ticker_mappings_final.json if provided
+  - If sensitivities are null → Equal-weight (default)
+  - If sensitivities have values → Weighted by sensitivity (must sum to 1.0)
+  - Validation: Warns if sensitivities don't sum to 1.0 (±0.01 tolerance)
 - Inputs: Negative changes marked (rising input = margin pressure)
+  - Color coding: Negative = green (cost down, good), Positive = red (cost up, bad)
 - Outputs: Positive changes marked (rising output = margin expansion)
+  - Color coding: Positive = green (revenue up, good), Negative = red (revenue down, bad)
 - **Spread Row**: Bold with color coding (red if negative, green if positive)
   - Treats None values as 0 in calculation
   - Formula: Spread = (Output % or 0) - (Input % or 0)
-- Caption explains equal-weighted aggregation methodology
+- Caption explains sensitivity-weighted or equal-weighted aggregation methodology
 
 #### Input/Output Charts
 - **Aggregation Toggle**: Sidebar checkbox controls these charts
@@ -241,17 +247,32 @@ Date       | Ticker                      | Price  | Group      | Region | Sector
 ## Technical Decisions
 
 ### 1. Index Methodology
-- **Equal-weight**: Average of daily returns
+- **Weighting Methods**:
+  - **Sensitivity-weighted** (Ticker Analysis only): Uses sensitivity values from ticker_mappings_final.json
+  - **Equal-weighted** (Group/Regional/Sector indexes, or when sensitivities are null): Average of daily returns
 - **Base value**: 100 (normalized for comparison)
 - **Missing data handling**: Robust NA handling at multiple levels
 - **Aggregation**: Always used in Combined View for consistent spread calculation
 
-#### Equal-Weight Index Calculation Steps:
+#### Sensitivity-Weighted Index Calculation (Ticker Analysis):
+1. **Get component prices**: Load price data for each input/output item
+2. **Calculate daily returns**: `pct_change(fill_method=None)` for each ticker
+3. **Extract sensitivity weights**: Read from ticker_mappings_final.json
+4. **Validate weights**: Check if `sum(weights) ≈ 1.0` (±0.01 tolerance), warn if not
+5. **Weighted averaging**: `(returns * weights).sum(axis=1, skipna=True)`
+6. **Build cumulative index**: `(1 + avg_returns).cumprod() * base_value`
+7. **Set starting value**: `first_valid_price = base_value`
+
+**Example**: HPG with inputs [Iron Ore: 0.6, Coking Coal: 0.3, Scrap: 0.1]
+- If Iron Ore +10%, Coking Coal +5%, Scrap +2%
+- Weighted return = 0.6×10% + 0.3×5% + 0.1×2% = 7.7%
+
+#### Equal-Weight Index Calculation (Group/Regional/Sector):
 1. **Get component prices**: Pivot data into matrix (dates × tickers)
 2. **Calculate daily returns**: `pct_change(fill_method=None)` for each ticker
 3. **Equal-weight averaging**: `mean(axis=1, skipna=True)` across all available tickers
 4. **Build cumulative index**: `(1 + avg_returns).cumprod() * base_value`
-5. **Set starting value**: `index_values.iloc[0] = base_value`
+5. **Set starting value**: `first_valid_price = base_value`
 
 #### NA Handling Strategy:
 **Problem Type 1: Different Starting Dates**
@@ -408,8 +429,9 @@ streamlit run dashboard_app.py
 
 ### 2. Spread Calculation
 - Only appears when both inputs AND outputs exist
-- Uses aggregated data (multiple items → equal-weighted index)
+- Uses aggregated data (multiple items → sensitivity-weighted or equal-weighted index)
 - Single input/output → uses that item directly
+- Sensitivity weighting only applies in Ticker Analysis page, not dashboard
 
 ### 3. Correlation Display
 - **Regional only**: Group-level indexes excluded
@@ -443,6 +465,31 @@ streamlit run dashboard_app.py
   - Top 10 stocks per period
   - Color-coded spreads
   - Cached for performance
+
+### 4. Sensitivity-Based Weighting in Ticker Analysis
+- **Added**: Support for sensitivity-weighted aggregation in ticker_mappings_final.json
+- **Features**:
+  - Uses `sensitivity` field from input/output items
+  - If sensitivities are null → Equal-weight (default behavior)
+  - If sensitivities provided → Weighted by sensitivity value
+  - **Validation**: Warns if sensitivities don't sum to 1.0 (±0.01 tolerance)
+  - Only applies to Ticker Analysis page, not dashboard or group indexes
+- **Example**: HPG inputs with Iron Ore (0.6), Coking Coal (0.3), Scrap (0.1)
+  - Index movement = 60% Iron Ore + 30% Coal + 10% Scrap
+- **Files Updated**: `pages/Ticker_Analysis.py`
+
+### 5. Dynamic Classification Loading
+- **Added**: `classification_loader.py` module for instant classification updates
+- **Features**:
+  - Edit `commo_list.xlsx` and refresh app (no data regeneration needed)
+  - Classification loaded at runtime from Excel file
+  - Price data stays separate in `cleaned_data.csv`
+- **Files Updated**: All pages now use `load_data_with_classification()`
+
+### 6. NaN Price Handling
+- **Fixed**: Items with NaN prices at start (e.g., DAP_DinhVu_61) now display correctly
+- **Solution**: Use `dropna().iloc[0]` to get first valid price for normalization
+- **Impact**: Charts show data from when valid prices exist, instead of failing
 
 ---
 
@@ -499,6 +546,96 @@ print(f"Return correlations: {return_corr}")
 - Always specify `fill_method=None` in `.pct_change()`
 - Use `.ffill()` instead of `.fillna(method='ffill')`
 - Handle timezone mismatches explicitly
+
+---
+
+## News Processing System (Latest Session)
+
+### 1. PDF to Markdown Converter (`news/pdf_to_markdown_summarizer.py`)
+**Features**:
+- Extracts text from PDF reports (PyMuPDF)
+- AI-powered summarization via OpenAI API
+- Classifies news by commodity groups from `commo_list.xlsx`
+- **Output Formats**:
+  - Individual JSON: `{report_date, report_file, commodity_news}`
+  - Markdown: Human-readable summaries organized by commodity
+  - Consolidated JSON: `all_reports.json` - single file with all reports
+
+**Consolidated JSON Structure**:
+```json
+{
+  "last_updated": "2025-10-09T15:30:00",
+  "total_reports": 2,
+  "reports": [...],  // Full report data
+  "by_commodity": {  // Organized for quick lookup
+    "Oil": [{"date": "2025-09-12", "news": "..."}],
+    "Urea": [{"date": "2025-09-12", "news": "..."}]
+  }
+}
+```
+
+### 2. News Integration in Dashboard
+**Files Updated**:
+- `commo_dashboard.py`: Added `load_latest_news()` and `get_all_news_summary()`
+- `dashboard_app.py`: Shows latest 3 news items per commodity group
+- `pages/JPM_News_Summary.py`: Dedicated news browsing page
+
+**Features**:
+- News displayed on commodity group pages (after performance metrics)
+- Expandable sections with date and report file
+- Markdown rendering with $ and ~ escaping (prevents LaTeX/strikethrough)
+- Automatically loads from `all_reports.json` (falls back to individual files)
+
+### 3. Workflow
+**Structure**:
+```
+news/
+├── reports/              # Store PDF files here
+├── process_reports.py    # Helper script
+├── pdf_to_markdown_summarizer.py
+├── all_reports.json      # Consolidated (used by dashboard)
+├── JPM_*_summary.json    # Individual reports
+└── JPM_*_summary.md      # Markdown versions
+```
+
+**Usage**:
+```bash
+# Process all PDFs in reports/ folder
+cd news
+python process_reports.py
+
+# Process specific file
+python process_reports.py --file reports/JPM_2025-09-12.pdf
+
+# Consolidate existing summaries
+python process_reports.py --consolidate
+```
+
+### 4. AI Processing
+**Prompt Strategy**:
+- Focused on commodity fundamentals (price, supply/demand)
+- Ignores company-specific news (unless affects commodities)
+- Removes bank/source names from public display
+- Returns structured JSON by commodity group
+- 1-2 sentence summaries per commodity
+
+**API Configuration**:
+- Uses simple `client.responses.create()` pattern
+- No conversation history (single request/response)
+- Temperature: 1.0 for varied phrasing
+
+### 5. Deployment Preparation
+**Files Created**:
+- `requirements.txt`: All Python dependencies
+- `.streamlit/config.toml`: Theme and server settings
+- `.gitignore`: Protects API keys and sensitive data
+- `README.md`: Installation and usage instructions
+
+**Deployment-Ready Features**:
+- API keys externalized (use Streamlit secrets in production)
+- Consolidated JSON reduces file I/O
+- Fallback to individual files if consolidated missing
+- Clean separation of reports folder
 
 ---
 

@@ -1,5 +1,9 @@
 import pandas as pd
 import numpy as np
+import json
+import os
+import glob
+from datetime import datetime
 
 def create_equal_weight_index(df, group_name, base_value=100):
     """
@@ -195,3 +199,94 @@ def create_regional_indexes(df, base_value=100):
             })
 
     return regional_indexes
+
+def load_latest_news(group_name, consolidated_file='news/all_reports.json'):
+    """
+    Load the latest news for a specific commodity group from consolidated file
+
+    Parameters:
+    - group_name: Name of the commodity group
+    - consolidated_file: Path to consolidated JSON file (default: 'news/all_reports.json')
+
+    Returns:
+    - List of dict with 'date', 'report_file', and 'news' for the group
+    """
+    try:
+        # Load from consolidated file (simple array)
+        if os.path.exists(consolidated_file):
+            with open(consolidated_file, 'r', encoding='utf-8') as f:
+                reports = json.load(f)
+
+            # Extract news for this commodity group
+            news_items = []
+            for report in reports:
+                commodity_news = report.get('commodity_news', {})
+                group_news = commodity_news.get(group_name, "")
+
+                if group_news and group_news.strip():
+                    news_items.append({
+                        'date': report.get('report_date', 'Unknown'),
+                        'report_file': report.get('report_file', ''),
+                        'news': group_news
+                    })
+
+            return news_items
+
+        # Fallback: load from individual files
+        else:
+            json_files = glob.glob(os.path.join('news', '*_summary.json'))
+
+            if not json_files:
+                return []
+
+            json_files.sort(reverse=True)
+
+            news_items = []
+            for json_file in json_files:
+                try:
+                    with open(json_file, 'r', encoding='utf-8') as f:
+                        file_data = json.load(f)
+
+                    commodity_news = file_data.get('commodity_news', {})
+                    group_news = commodity_news.get(group_name, "")
+
+                    if group_news and group_news.strip():
+                        news_items.append({
+                            'date': file_data.get('report_date', 'Unknown'),
+                            'report_file': file_data.get('report_file', os.path.basename(json_file)),
+                            'news': group_news
+                        })
+                except (json.JSONDecodeError, KeyError) as e:
+                    print(f"Error reading {json_file}: {e}")
+                    continue
+
+            return news_items
+
+    except Exception as e:
+        print(f"Error loading news: {e}")
+        return []
+
+def get_all_news_summary(consolidated_file='news/all_reports.json', limit=5):
+    """
+    Get a summary of all recent news across all commodity groups
+
+    Parameters:
+    - consolidated_file: Path to consolidated JSON file (default: 'news/all_reports.json')
+    - limit: Maximum number of reports to return (default: 5)
+
+    Returns:
+    - List of recent reports (limited by limit parameter)
+    """
+    try:
+        if os.path.exists(consolidated_file):
+            with open(consolidated_file, 'r', encoding='utf-8') as f:
+                reports = json.load(f)
+
+            # Return limited number of reports (already sorted newest first)
+            return reports[:limit]
+
+        return []
+
+    except Exception as e:
+        print(f"Error loading news summary: {e}")
+        return []
