@@ -204,19 +204,17 @@ if len(regional_keys) > 0:
 
             # Regional metrics
             regional_data = regional_combined_df[regional_key].dropna()
-            col1r, col2r, col3r, col4r = st.columns(4)
+            col1r, col2r, col3r = st.columns(3)
 
             with col1r:
-                st.metric('Current Value', f'{regional_data.iloc[-1]:.2f}')
-            with col2r:
-                change_1d_r = ((regional_data.iloc[-1] / regional_data.iloc[-2]) - 1) * 100 if len(regional_data) >= 2 else 0
-                st.metric('1D Change', f'{change_1d_r:.2f}%', delta=f'{change_1d_r:.2f}%')
-            with col3r:
                 change_5d_r = ((regional_data.iloc[-1] / regional_data.iloc[-6]) - 1) * 100 if len(regional_data) >= 6 else 0
                 st.metric('5D Change', f'{change_5d_r:.2f}%', delta=f'{change_5d_r:.2f}%')
-            with col4r:
-                change_15d_r = ((regional_data.iloc[-1] / regional_data.iloc[-16]) - 1) * 100 if len(regional_data) >= 16 else 0
-                st.metric('15D Change', f'{change_15d_r:.2f}%', delta=f'{change_15d_r:.2f}%')
+            with col2r:
+                change_10d_r = ((regional_data.iloc[-1] / regional_data.iloc[-11]) - 1) * 100 if len(regional_data) >= 11 else 0
+                st.metric('10D Change', f'{change_10d_r:.2f}%', delta=f'{change_10d_r:.2f}%')
+            with col3r:
+                change_50d_r = ((regional_data.iloc[-1] / regional_data.iloc[-51]) - 1) * 100 if len(regional_data) >= 51 else 0
+                st.metric('50D Change', f'{change_50d_r:.2f}%', delta=f'{change_50d_r:.2f}%')
 
             # Show tickers in this region
             st.write(f"**Component Tickers ({region_name}):**")

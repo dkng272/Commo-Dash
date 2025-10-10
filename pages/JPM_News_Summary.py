@@ -20,9 +20,10 @@ st.markdown("""
 
 st.title('📰 Chemical & Agriculture Market Reports')
 
-# Get all summary files
+# Get all summary files from reports subdirectory
 news_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'news')
-summary_files = glob.glob(os.path.join(news_dir, '*_summary.md'))
+reports_dir = os.path.join(news_dir, 'reports')
+summary_files = glob.glob(os.path.join(reports_dir, '*_summary.md'))
 
 if not summary_files:
     st.warning('No summary files found in the news directory.')

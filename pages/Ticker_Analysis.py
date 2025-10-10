@@ -686,6 +686,18 @@ if ticker_data:
                         line=dict(width=2)
                     ), row=1, col=1)
 
+        # Handle missing inputs/outputs by treating as flat line at base 100 (0% change)
+        # This matches the summary table logic where None = 0%
+        if input_normalized is None and output_normalized is not None:
+            # Missing input - create flat line at 100
+            input_normalized = output_normalized[['Date']].copy()
+            input_normalized['Normalized'] = 100
+
+        if output_normalized is None and input_normalized is not None:
+            # Missing output - create flat line at 100
+            output_normalized = input_normalized[['Date']].copy()
+            output_normalized['Normalized'] = 100
+
         # Add shaded area between input and output
         if input_normalized is not None and output_normalized is not None:
             # Merge on date
