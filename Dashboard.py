@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import json
+from datetime import datetime
 from commo_dashboard import create_equal_weight_index, create_weighted_index, create_regional_indexes, create_sector_indexes, load_latest_news
 from classification_loader import load_data_with_classification
 
@@ -215,18 +216,18 @@ df = load_data()
 all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes, sector_combined_df = build_indexes(df)
 
 # Streamlit Dashboard
-st.title('Commodity Index Dashboard')
-
-st.divider()
-
-# Stock Spread Table
-# Toggle between best benefited and worst hit
-show_worst = st.checkbox('Show Worst Hit Stocks', value=False)
-
-if show_worst:
-    st.subheader('Top 5 - Worst Hit Stocks by Spread')
-else:
-    st.subheader('Top 5 - Best Benefited Stocks by Spread')
+col_title, col_update = st.columns([3, 1])
+with col_title:
+    st.title('Commodity Index Dashboard')
+with col_update:
+    # Last updated timestamp
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+    st.markdown(f"""
+        <div style="text-align: right; padding-top: 20px;">
+            <span style="color: #666; font-size: 12px;">Last updated</span><br>
+            <span style="color: #333; font-size: 13px; font-weight: 500;">{current_time}</span>
+        </div>
+    """, unsafe_allow_html=True)
 
 # Load ticker mappings and calculate spreads
 with open('ticker_mappings_final.json', 'r') as f:
@@ -234,127 +235,155 @@ with open('ticker_mappings_final.json', 'r') as f:
 
 spreads_df = calculate_all_ticker_spreads(df, all_indexes, regional_indexes, ticker_mapping)
 
-# Create 4-column layout
-col1, col2, col3, col4 = st.columns(4)
+st.divider()
 
-def color_spread(val):
-    color = 'red' if val < 0 else 'green' if val > 0 else 'black'
-    return f'color: {color}'
+# Visual Section Container for Market Movers
+st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 18px;">Market Movers</h3>
+        <p style="color: rgba(255,255,255,0.9); margin: 4px 0 0 0; font-size: 13px;">
+            Track stocks with the largest input-output spreads
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
-with col1:
-    st.write("**5D Spread**")
-    if show_worst:
-        top_5d = spreads_df.nsmallest(5, 'Spread_5D')[['Ticker', 'Spread_5D']]
-    else:
-        top_5d = spreads_df.nlargest(5, 'Spread_5D')[['Ticker', 'Spread_5D']]
-    st.dataframe(
-        top_5d.style.map(color_spread, subset=['Spread_5D']).format({'Spread_5D': '{:.2f}'}),
-        hide_index=True
-    )
+# Create tabs for Stock Spreads and Index Swings
+tab1, tab2 = st.tabs(["Stock Spreads", "Commodity Index Swings"])
 
-with col2:
-    st.write("**10D Spread**")
-    if show_worst:
-        top_10d = spreads_df.nsmallest(5, 'Spread_10D')[['Ticker', 'Spread_10D']]
-    else:
-        top_10d = spreads_df.nlargest(5, 'Spread_10D')[['Ticker', 'Spread_10D']]
-    st.dataframe(
-        top_10d.style.map(color_spread, subset=['Spread_10D']).format({'Spread_10D': '{:.2f}'}),
-        hide_index=True
-    )
+with tab1:
+    # Toggle between best benefited and worst hit
+    show_worst = st.checkbox('Show Worst Hit Stocks', value=False)
 
-with col3:
-    st.write("**50D Spread**")
-    if show_worst:
-        top_50d = spreads_df.nsmallest(5, 'Spread_50D')[['Ticker', 'Spread_50D']]
-    else:
-        top_50d = spreads_df.nlargest(5, 'Spread_50D')[['Ticker', 'Spread_50D']]
-    st.dataframe(
-        top_50d.style.map(color_spread, subset=['Spread_50D']).format({'Spread_50D': '{:.2f}'}),
-        hide_index=True
-    )
+    st.caption("**Tip:** Visit the Ticker Analysis page for detailed stock analysis")
 
-with col4:
-    st.write("**150D Spread**")
-    if show_worst:
-        top_150d = spreads_df.nsmallest(5, 'Spread_150D')[['Ticker', 'Spread_150D']]
-    else:
-        top_150d = spreads_df.nlargest(5, 'Spread_150D')[['Ticker', 'Spread_150D']]
-    st.dataframe(
-        top_150d.style.map(color_spread, subset=['Spread_150D']).format({'Spread_150D': '{:.2f}'}),
-        hide_index=True
-    )
+    # Create 4-column layout
+    col1, col2, col3, col4 = st.columns(4)
+
+    def color_spread(val):
+        color = 'red' if val < 0 else 'green' if val > 0 else 'black'
+        return f'color: {color}'
+
+    with col1:
+        st.write("**5D Spread**")
+        if show_worst:
+            top_5d = spreads_df.nsmallest(5, 'Spread_5D')[['Ticker', 'Spread_5D']]
+        else:
+            top_5d = spreads_df.nlargest(5, 'Spread_5D')[['Ticker', 'Spread_5D']]
+        st.dataframe(
+            top_5d.style.map(color_spread, subset=['Spread_5D']).format({'Spread_5D': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col2:
+        st.write("**10D Spread**")
+        if show_worst:
+            top_10d = spreads_df.nsmallest(5, 'Spread_10D')[['Ticker', 'Spread_10D']]
+        else:
+            top_10d = spreads_df.nlargest(5, 'Spread_10D')[['Ticker', 'Spread_10D']]
+        st.dataframe(
+            top_10d.style.map(color_spread, subset=['Spread_10D']).format({'Spread_10D': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col3:
+        st.write("**50D Spread**")
+        if show_worst:
+            top_50d = spreads_df.nsmallest(5, 'Spread_50D')[['Ticker', 'Spread_50D']]
+        else:
+            top_50d = spreads_df.nlargest(5, 'Spread_50D')[['Ticker', 'Spread_50D']]
+        st.dataframe(
+            top_50d.style.map(color_spread, subset=['Spread_50D']).format({'Spread_50D': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col4:
+        st.write("**150D Spread**")
+        if show_worst:
+            top_150d = spreads_df.nsmallest(5, 'Spread_150D')[['Ticker', 'Spread_150D']]
+        else:
+            top_150d = spreads_df.nlargest(5, 'Spread_150D')[['Ticker', 'Spread_150D']]
+        st.dataframe(
+            top_150d.style.map(color_spread, subset=['Spread_150D']).format({'Spread_150D': '{:.2f}'}),
+            hide_index=True
+        )
+
+with tab2:
+    # Summary Table - Largest Swings
+
+    summary_data = []
+    for group in all_indexes.keys():
+        index_data = combined_df[group].dropna()
+
+        change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100 if len(index_data) >= 6 else 0
+        change_10d = ((index_data.iloc[-1] / index_data.iloc[-11]) - 1) * 100 if len(index_data) >= 11 else 0
+        change_50d = ((index_data.iloc[-1] / index_data.iloc[-51]) - 1) * 100 if len(index_data) >= 51 else 0
+        change_150d = ((index_data.iloc[-1] / index_data.iloc[-151]) - 1) * 100 if len(index_data) >= 151 else 0
+
+        summary_data.append({
+            'Group': group,
+            '5D Change (%)': round(change_5d, 2),
+            '10D Change (%)': round(change_10d, 2),
+            '50D Change (%)': round(change_50d, 2),
+            '150D Change (%)': round(change_150d, 2),
+            '5D Abs Swing': round(abs(change_5d), 2),
+            '10D Abs Swing': round(abs(change_10d), 2),
+            '50D Abs Swing': round(abs(change_50d), 2),
+            '150D Abs Swing': round(abs(change_150d), 2)
+        })
+
+    summary_df = pd.DataFrame(summary_data)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    def color_negative_red(val):
+        color = 'red' if val < 0 else 'green' if val > 0 else 'black'
+        return f'color: {color}'
+
+    with col1:
+        st.write("**5D Swings**")
+        top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_5d[['Group', '5D Change (%)']].style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col2:
+        st.write("**10D Swings**")
+        top_10d = summary_df.sort_values('10D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_10d[['Group', '10D Change (%)']].style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col3:
+        st.write("**50D Swings**")
+        top_50d = summary_df.sort_values('50D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_50d[['Group', '50D Change (%)']].style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col4:
+        st.write("**150D Swings**")
+        top_150d = summary_df.sort_values('150D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_150d[['Group', '150D Change (%)']].style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
 
 st.divider()
 
-# Summary Table - Largest Swings
-st.subheader('Top 5 - Largest Index Swings')
-
-summary_data = []
-for group in all_indexes.keys():
-    index_data = combined_df[group].dropna()
-
-    change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100 if len(index_data) >= 6 else 0
-    change_10d = ((index_data.iloc[-1] / index_data.iloc[-11]) - 1) * 100 if len(index_data) >= 11 else 0
-    change_50d = ((index_data.iloc[-1] / index_data.iloc[-51]) - 1) * 100 if len(index_data) >= 51 else 0
-    change_150d = ((index_data.iloc[-1] / index_data.iloc[-151]) - 1) * 100 if len(index_data) >= 151 else 0
-
-    summary_data.append({
-        'Group': group,
-        '5D Change (%)': round(change_5d, 2),
-        '10D Change (%)': round(change_10d, 2),
-        '50D Change (%)': round(change_50d, 2),
-        '150D Change (%)': round(change_150d, 2),
-        '5D Abs Swing': round(abs(change_5d), 2),
-        '10D Abs Swing': round(abs(change_10d), 2),
-        '50D Abs Swing': round(abs(change_50d), 2),
-        '150D Abs Swing': round(abs(change_150d), 2)
-    })
-
-summary_df = pd.DataFrame(summary_data)
-
-col1, col2, col3, col4 = st.columns(4)
-
-def color_negative_red(val):
-    color = 'red' if val < 0 else 'green' if val > 0 else 'black'
-    return f'color: {color}'
-
-with col1:
-    st.write("**5D Swings**")
-    top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(5)
-    st.dataframe(
-        top_5d[['Group', '5D Change (%)']].style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
-        hide_index=True
-    )
-
-with col2:
-    st.write("**10D Swings**")
-    top_10d = summary_df.sort_values('10D Abs Swing', ascending=False).head(5)
-    st.dataframe(
-        top_10d[['Group', '10D Change (%)']].style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
-        hide_index=True
-    )
-
-with col3:
-    st.write("**50D Swings**")
-    top_50d = summary_df.sort_values('50D Abs Swing', ascending=False).head(5)
-    st.dataframe(
-        top_50d[['Group', '50D Change (%)']].style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
-        hide_index=True
-    )
-
-with col4:
-    st.write("**150D Swings**")
-    top_150d = summary_df.sort_values('150D Abs Swing', ascending=False).head(5)
-    st.dataframe(
-        top_150d[['Group', '150D Change (%)']].style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
-        hide_index=True
-    )
-
-st.divider()
-
-# Latest News Section
-st.subheader('📰 Latest Market News')
+# Visual Section Container for Latest News
+st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 18px;">Latest Market News</h3>
+        <p style="color: rgba(255,255,255,0.9); margin: 4px 0 0 0; font-size: 13px;">
+            Recent commodity updates across all sectors
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
 # Collect all news from all groups
 all_news = []
@@ -372,20 +401,26 @@ for group in all_indexes.keys():
 all_news_sorted = sorted(all_news, key=lambda x: x['date'], reverse=True)[:20]
 
 if all_news_sorted:
-    # Build news content with group labels
-    news_items = []
+    # Build all news cards HTML
+    all_cards_html = '<div style="max-height: 500px; overflow-y: auto; padding: 4px;">'
+
     for item in all_news_sorted:
-        # Escape special markdown characters
-        news_text = item['news'].replace('$', r'\$').replace('~', r'\~')
-        news_items.append(f"**📅 {item['date']} | {item['group']}**\n\n{news_text}")
+        # Escape special characters for HTML display
+        news_text = item['news'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-    news_content = "\n\n---\n\n".join(news_items)
+        # Add each card to the HTML string
+        all_cards_html += f'''<div style="background: white; border-left: 4px solid #667eea; padding: 16px; margin: 12px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); transition: box-shadow 0.3s ease;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+<strong style="font-size: 14px; color: #333;">{item['date']}</strong>
+<span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 14px; border-radius: 16px; font-size: 12px; font-weight: 600;">{item['group']}</span>
+</div>
+<p style="margin: 0; color: #555; line-height: 1.6; font-size: 14px;">{news_text}</p>
+</div>'''
 
-    # Display in scrollable container
-    st.markdown(
-        f'<div style="max-height: 500px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">{news_content}</div>',
-        unsafe_allow_html=True
-    )
+    all_cards_html += '</div>'
+
+    # Display the scrollable container with all cards
+    st.markdown(all_cards_html, unsafe_allow_html=True)
 else:
     st.info("No recent news available")
 

@@ -361,7 +361,13 @@ if ticker_data:
             return ['font-weight: bold'] + ['font-weight: bold; color: red' if val is not None and val < 0 else 'font-weight: bold; color: green' if val is not None and val > 0 else 'font-weight: bold' for val in row[1:]]
         return [''] * len(row)
 
-    st.subheader('Summary Metrics')
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">Summary Metrics</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
     st.dataframe(summary_display.style.format({
         '5D %': '{:.2f}',
         '10D %': '{:.2f}',
@@ -372,7 +378,13 @@ if ticker_data:
     st.divider()
 
     # Display inputs
-    st.subheader('Input Commodities (Costs)')
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">Input Commodities (Costs)</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
     if ticker_data['inputs']:
         input_items = []
 
@@ -493,7 +505,13 @@ if ticker_data:
     st.divider()
 
     # Display outputs
-    st.subheader('Output Commodities (Products)')
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">Output Commodities (Products)</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
     if ticker_data['outputs']:
         output_items = []
 
@@ -614,7 +632,12 @@ if ticker_data:
     # Combined view with stock price subplot
     if ticker_data['inputs'] or ticker_data['outputs']:
         st.divider()
-        st.subheader('Combined View: Inputs vs Outputs vs Stock Price')
+        st.markdown("""
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                <h3 style="color: white; margin: 0; font-size: 18px;">Combined View: Inputs vs Outputs vs Stock Price</h3>
+            </div>
+        """, unsafe_allow_html=True)
 
         # Create subplots - 3 rows, shared x-axis
         fig_combined = make_subplots(
@@ -854,11 +877,16 @@ if ticker_data:
         # Add interpretation notes
         if input_normalized is not None and output_normalized is not None:
             if spread_correlation is not None:
-                st.success(f'📊 **Spread-Stock Correlation**: Price Level = {spread_correlation:.3f} | Returns = {spread_return_correlation:.3f}')
+                st.success(f'**Spread-Stock Correlation**: Price Level = {spread_correlation:.3f} | Returns = {spread_return_correlation:.3f}')
 
         # Display correlation results
         if stock_data is not None and not stock_data.empty and (price_correlations or return_correlations):
-            st.subheader('Correlation Analysis')
+            st.markdown("""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h3 style="color: white; margin: 0; font-size: 18px;">Correlation Analysis</h3>
+                </div>
+            """, unsafe_allow_html=True)
 
             # Separate inputs and outputs for price correlations
             input_price_corrs = []

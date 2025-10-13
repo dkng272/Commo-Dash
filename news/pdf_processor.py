@@ -405,7 +405,7 @@ def process_folder(folder_path, api_key=None, model=None):
 # ## Quick Start Examples
 
 #%% Example: Process single PDF
-name = "JPM_ChinaMetals_2025-10-13"
+name = "JPM_GlobalCommodities_2025-09-29"
 pdf_path = f"reports/{name}.pdf"
 result = process_pdf(pdf_path, api_key=OPENAI_API_KEY, model=DEFAULT_MODEL)
 

@@ -95,7 +95,7 @@ selected_group = st.sidebar.selectbox(
 )
 
 # Page Title with selected group
-st.title(f'📊 {selected_group}')
+st.title(f'{selected_group}')
 index_data = combined_df[selected_group].dropna()
 col1, col2, col3 = st.columns(3)
 
@@ -171,24 +171,27 @@ st.caption(f"**Component Tickers:** {', '.join(sorted(tickers))}")
 
 # Market News for Selected Group
 st.divider()
-st.subheader(f'📰 Latest News - {selected_group}')
+st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 18px;">Latest News - {selected_group}</h3>
+    </div>
+""", unsafe_allow_html=True)
 
 news_items = load_latest_news(selected_group)
 
 if news_items:
-    # Merge all news items into one text box with scrollable container
+    # Merge all news items into one text box with scrollable container (using HTML)
     merged_news = []
     for item in news_items:  # Show all news items
-        # Escape special markdown characters
-        news_text = item['news']
-        news_text = news_text.replace('$', r'\$')
-        news_text = news_text.replace('~', r'\~')
+        # Escape special characters for HTML display
+        news_text = item['news'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-        # Add date header and news
-        merged_news.append(f"**📅 {item['date']}**\n\n{news_text}")
+        # Add date header and news (using HTML for bold)
+        merged_news.append(f"<strong>{item['date']}</strong><br><br>{news_text}")
 
     # Display all merged news in a scrollable container with max height
-    news_content = "\n\n---\n\n".join(merged_news)
+    news_content = "<hr>".join(merged_news)
     st.markdown(
         f'<div style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">{news_content}</div>',
         unsafe_allow_html=True

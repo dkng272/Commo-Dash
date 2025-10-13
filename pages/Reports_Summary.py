@@ -31,9 +31,8 @@ try:
         st.warning('No reports found in the data file.')
         st.info('Run the PDF processor to generate reports.')
     else:
-        # Extract unique sources and series for filtering
+        # Extract unique sources
         all_sources = sorted(list(set(report.get('report_source', 'Unknown') for report in reports_data)))
-        all_series = sorted(list(set(report.get('report_series', 'Unknown') for report in reports_data)))
 
         # Sidebar filters
         st.sidebar.subheader('Filters')
@@ -43,15 +42,22 @@ try:
             'Report Source',
             options=all_sources,
             default=all_sources,
-            help='Filter by report source (e.g., JPM, Goldman, etc.)'
+            help='Filter by report source (e.g., JPM, HSBC, etc.)'
         )
 
-        # Series filter
+        # Get series that belong to selected sources
+        available_series = sorted(list(set(
+            report.get('report_series', 'Unknown')
+            for report in reports_data
+            if report.get('report_source', 'Unknown') in selected_sources
+        )))
+
+        # Series filter (only show series from selected sources)
         selected_series = st.sidebar.multiselect(
-            'Report Series',
-            options=all_series,
-            default=all_series,
-            help='Filter by report series (e.g., GlobalCommodities, ChemAgri, etc.)'
+            'Report Name',
+            options=available_series,
+            default=available_series,
+            help='Filter by report name/series (e.g., GlobalCommodities, ChemAgri, etc.)'
         )
 
         st.sidebar.divider()

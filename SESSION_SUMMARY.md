@@ -639,4 +639,222 @@ python process_reports.py --consolidate
 
 ---
 
-**Session completed successfully. All features integrated and working.**
+## Current Session Updates (2025-10-13)
+
+### 1. Enhanced News System with Metadata Filtering
+
+#### `all_reports.json` Structure Update
+- **Added metadata fields**:
+  - `report_source`: Source of the report (JPM, HSBC, etc.)
+  - `report_series`: Report series name (ChemAgri, GlobalCommodities, GlobalFreight, ChinaMetals, ContainerShipping)
+  - `report_type`: Type of report (commodity, sector)
+- **Multi-source support**: Now includes JPM and HSBC reports
+- **Array structure**: Changed from object with metadata to direct array of reports
+
+**New Structure**:
+```json
+[
+  {
+    "report_date": "2025-10-13",
+    "report_file": "JPM_ChinaMetals_2025-10-13.pdf",
+    "report_source": "JPM",
+    "report_series": "ChinaMetals",
+    "report_type": "commodity",
+    "commodity_news": {...}
+  }
+]
+```
+
+#### JPM News Summary Page Updates (`pages/JPM_News_Summary.py`)
+- **Removed markdown file reading**: No longer reads from `reports/*.md` files
+- **Direct JSON integration**: Reads directly from `all_reports.json`
+- **Added filtering UI**:
+  - Multiselect for `Report Source` (JPM, HSBC, etc.)
+  - Multiselect for `Report Series` (ChemAgri, GlobalCommodities, etc.)
+  - Both filters default to showing all options
+- **Improved display**:
+  - Changed from expandable sections to direct display with headers
+  - Shows metadata in header: Source, Series, Date, Type
+  - Each commodity displayed with `### {Commodity}` header
+  - Horizontal dividers between commodities
+- **Markdown escaping**: Prevents $ (LaTeX) and ~ (strikethrough) rendering issues
+- **Removed unused imports**: Cleaned up `datetime` and `pandas` imports
+
+### 2. Group Analysis Page Enhancements (`pages/Group_Analysis.py`)
+
+#### UI Cleanup
+- **Dynamic title**: Shows selected group name instead of generic "Commodity Group Analysis"
+  - Example: "📊 Aluminum" instead of "📊 Commodity Group Analysis"
+- **Removed fluff headers**:
+  - Removed "Performance Metrics" subheader
+  - Removed "{Group} Index" subheader
+- **Component tickers repositioned**: Moved from top section to caption below charts
+
+#### View Mode Toggle
+- **Added radio button**: Switch between "Index" and "Components" view
+- **Index mode** (default): Shows equal-weighted group index
+- **Components mode**:
+  - Multiselect to choose specific tickers
+  - Defaults to first 3 tickers (or all if ≤3 tickers)
+  - Plots multiple component tickers on same chart
+  - Allows single or multiple selection for comparison
+
+#### News Display Enhancement
+- **Removed limit**: Previously capped at 3 news items, now shows all
+- **Scrollable container**:
+  - Max height: 400px
+  - Auto-scroll when content exceeds height
+  - Bordered container with padding
+- **Markdown escaping**: $ and ~ characters properly escaped
+
+#### Regional Breakdown
+- **Component tickers moved**: Now displayed as captions below regional charts
+- **Cleaner layout**: Less visual clutter, more focus on data
+
+### 3. Main Dashboard Updates (`Dashboard.py`)
+
+#### Top Rankings Scaled Down
+- **Changed Top 10 → Top 5**:
+  - Stock spread tables: Now show top 5 instead of 10
+  - Index swing tables: Now show top 5 instead of 10
+  - Applies to all time periods: 5D, 10D, 50D, 150D
+- **Rationale**: More compact view, focuses on most significant movers
+
+#### Latest Market News Section
+- **New section added**: "📰 Latest Market News" at bottom of dashboard
+- **Features**:
+  - Aggregates news from all commodity groups
+  - Sorts by date (newest first)
+  - Limits to 20 most recent news items
+  - Scrollable container (max-height: 500px)
+  - Shows group label with each news item
+  - Format: "📅 {date} | {group}"
+- **Markdown escaping**: Prevents $ and ~ rendering issues
+- **Integration**: Uses `load_latest_news()` from `commo_dashboard.py`
+
+### 4. Project Structure Updates
+
+#### Updated File Locations
+```
+pages/
+├── JPM_News_Summary.py         # JSON-based news browser with filtering
+├── Group_Analysis.py            # Enhanced with view toggle and cleanup
+├── Ticker_Analysis.py           # (Unchanged)
+└── Correlation_Matrix.py        # (Unchanged)
+
+news/
+├── all_reports.json             # Multi-source with metadata
+├── reports/                     # PDF storage
+└── pdf_processor.py             # Processor script
+```
+
+### 5. Key Technical Changes
+
+#### News Loading Pattern
+**Before**:
+```python
+# Read markdown files
+summary_files = glob.glob('reports/*_summary.md')
+with open(file, 'r') as f:
+    content = f.read()
+```
+
+**After**:
+```python
+# Read JSON with metadata filtering
+with open('all_reports.json', 'r') as f:
+    reports_data = json.load(f)
+
+filtered_reports = [
+    r for r in reports_data
+    if r.get('report_source') in selected_sources
+    and r.get('report_series') in selected_series
+]
+```
+
+#### Scrollable Container Pattern
+```python
+st.markdown(
+    f'<div style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">{content}</div>',
+    unsafe_allow_html=True
+)
+```
+
+#### Component View Implementation
+```python
+# View mode toggle
+view_mode = st.radio('View Mode', options=['Index', 'Components'], horizontal=True)
+
+if view_mode == 'Components':
+    selected_tickers = st.multiselect(
+        'Select Components to Display',
+        options=tickers,
+        default=tickers[:3] if len(tickers) > 3 else tickers
+    )
+    # Plot each selected ticker
+    for ticker in selected_tickers:
+        fig.add_trace(go.Scatter(...))
+```
+
+### 6. UI/UX Improvements
+
+#### Consistent Patterns
+- **Scrollable sections**: All news sections use consistent max-height and styling
+- **Metadata display**: Consistent format across all pages (Source, Series, Date, Type)
+- **Component captions**: Moved to bottom of charts for cleaner layout
+- **Horizontal radio buttons**: More compact than vertical stacking
+
+#### User Experience
+- **Faster filtering**: Multiselect filters are instant, no page reload
+- **Better scannability**: Direct display of news without clicking expandable sections
+- **Flexible comparison**: Components mode allows custom ticker selection
+- **Reduced clutter**: Removed unnecessary headers and moved metadata to captions
+
+### 7. Reports Summary Page (`pages/Reports_Summary.py`)
+
+#### Hierarchical Filtering
+- **Changed filtering structure**: Report Source → Report Name (series)
+- **Dynamic cascading**: Report name options update based on selected sources
+- **Renamed field**: "Report Series" → "Report Name" for clarity
+- **Example flow**: Select JPM → See only JPM series (ChemAgri, ChinaMetals, etc.)
+
+### 8. UI/UX Design Improvements
+
+#### Dashboard Visual Enhancements
+- **Section Headers with Gradients**:
+  - Market Movers: Purple gradient (`#667eea → #764ba2`)
+  - Latest News: Pink-red gradient (`#f093fb → #f5576c`)
+  - Includes descriptive subtitles
+
+- **Tabbed Interface**:
+  - Tab 1: 📊 Stock Spreads
+  - Tab 2: 🔄 Commodity Index Swings
+  - Reduces scrolling, cleaner organization
+
+- **Enhanced News Cards**:
+  - White cards with subtle shadows
+  - 4px left border accent (blue)
+  - Date badge + commodity group pill (gradient)
+  - Better spacing and typography
+  - HTML-based for consistent rendering
+
+- **Last Updated Timestamp**:
+  - Top-right corner of dashboard
+  - Shows current date/time on load
+  - Indicates data freshness
+
+- **Navigation Hints**:
+  - Added caption: "💡 **Tip:** Visit the Ticker Analysis page for detailed stock analysis"
+  - Guides users to detailed views
+
+#### HTML Rendering Fixes
+- **News displays**: Changed from markdown to HTML in scrollable containers
+- **Bold text**: `**text**` → `<strong>text</strong>`
+- **Line breaks**: `\n\n` → `<br><br>`
+- **Separators**: `---` → `<hr>`
+- **Character escaping**: Proper HTML entities (`&amp;`, `&lt;`, `&gt;`)
+- **Rationale**: Markdown doesn't render inside HTML `<div>` tags
+
+---
+
+**Session completed: News system enhanced, UI modernized, hierarchical filtering implemented.**
