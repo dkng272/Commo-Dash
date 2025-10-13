@@ -10,14 +10,8 @@ def get_mongo_client():
     """
     Get MongoDB client with connection from Streamlit secrets
     """
-    try:
-        # Try to get from Streamlit secrets first (for cloud deployment)
-        mongo_uri = st.secrets["MONGODB_URI"]
-    except (FileNotFoundError, KeyError):
-        # Fallback to local connection for development
-        mongo_uri = "mongodb://localhost:27017/"
-        st.warning("⚠️ Using local MongoDB. Add MONGODB_URI to .streamlit/secrets.toml for cloud deployment.")
-
+    # Get from Streamlit secrets (required)
+    mongo_uri = st.secrets["MONGODB_URI"]
     client = MongoClient(mongo_uri)
     return client
 
@@ -118,4 +112,84 @@ def test_connection() -> bool:
         return True
     except Exception as e:
         print(f"❌ MongoDB connection failed: {e}")
+        return False
+
+# ==================== Reports Functions ====================
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def load_reports() -> List[Dict[str, Any]]:
+    """
+    Load all reports from MongoDB
+    Returns list of report dictionaries sorted by date (newest first)
+    """
+    db = get_database()
+    collection = db["reports"]
+
+    # Fetch all reports, exclude MongoDB's _id field
+    reports = list(collection.find({}, {'_id': 0}).sort("report_date", -1))
+
+    if not reports:
+        st.error("⚠️ No reports found in MongoDB. Please run the migration script.")
+        return []
+
+    return reports
+
+def save_reports(reports: List[Dict[str, Any]]) -> bool:
+    """
+    Save reports to MongoDB (replaces all existing data)
+
+    Parameters:
+    - reports: List of report dictionaries
+
+    Returns:
+    - bool: True if successful, False otherwise
+    """
+    try:
+        db = get_database()
+        collection = db["reports"]
+
+        # Clear existing data
+        collection.delete_many({})
+
+        # Insert new data
+        if reports:
+            collection.insert_many(reports)
+
+        # Create index on report_date for faster queries
+        collection.create_index("report_date")
+
+        # Clear the cache so new data is loaded
+        load_reports.clear()
+
+        return True
+    except Exception as e:
+        st.error(f"Error saving reports to MongoDB: {e}")
+        return False
+
+def migrate_reports_to_mongodb(json_file_path: str) -> bool:
+    """
+    Migrate reports from JSON file to MongoDB
+
+    Parameters:
+    - json_file_path: Path to the all_reports.json file
+
+    Returns:
+    - bool: True if successful, False otherwise
+    """
+    try:
+        # Load from JSON
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            reports = json.load(f)
+
+        # Save to MongoDB
+        success = save_reports(reports)
+
+        if success:
+            print(f"✅ Successfully migrated {len(reports)} reports to MongoDB")
+        else:
+            print("❌ Failed to migrate reports")
+
+        return success
+    except Exception as e:
+        print(f"❌ Error during migration: {e}")
         return False

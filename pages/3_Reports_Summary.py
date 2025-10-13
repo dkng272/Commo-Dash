@@ -1,6 +1,4 @@
 import streamlit as st
-import os
-import json
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Market News Summary")
 
@@ -19,13 +17,10 @@ st.markdown("""
 
 st.title('📰 Chemical & Agriculture Market Reports')
 
-# Load JSON data
-news_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'news')
-json_path = os.path.join(news_dir, 'all_reports.json')
-
+# Load reports from MongoDB
 try:
-    with open(json_path, 'r', encoding='utf-8') as f:
-        reports_data = json.load(f)
+    from mongodb_utils import load_reports
+    reports_data = load_reports()
 
     if not reports_data:
         st.warning('No reports found in the data file.')
@@ -139,11 +134,6 @@ try:
             st.sidebar.caption(f"Filtered reports: {len(filtered_reports)}")
             st.sidebar.caption(f"Total reports: {len(reports_data)}")
 
-except FileNotFoundError:
-    st.error(f'Data file not found: {json_path}')
-    st.info('Please ensure the all_reports.json file exists in the news directory.')
-except json.JSONDecodeError:
-    st.error('Error parsing JSON data file.')
-    st.info('The data file may be corrupted or improperly formatted.')
 except Exception as e:
-    st.error(f"Unexpected error: {e}")
+    st.error(f"Error loading reports from MongoDB: {e}")
+    st.info('Please ensure MongoDB is running and the reports collection has been migrated.')
