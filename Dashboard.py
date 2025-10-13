@@ -220,12 +220,12 @@ col_title, col_update = st.columns([3, 1])
 with col_title:
     st.title('Commodity Index Dashboard')
 with col_update:
-    # Last updated timestamp
-    current_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+    # Last updated timestamp based on latest data date
+    latest_data_date = df['Date'].max().strftime('%Y-%m-%d')
     st.markdown(f"""
         <div style="text-align: right; padding-top: 20px;">
             <span style="color: #666; font-size: 12px;">Last updated</span><br>
-            <span style="color: #333; font-size: 13px; font-weight: 500;">{current_time}</span>
+            <span style="color: #333; font-size: 13px; font-weight: 500;">{latest_data_date}</span>
         </div>
     """, unsafe_allow_html=True)
 
