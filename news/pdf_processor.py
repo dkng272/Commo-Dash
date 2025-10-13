@@ -20,7 +20,7 @@ from prompts.prompt_router import get_max_pages_for_prompt
 # Default settings
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_TEMPERATURE = 1.0
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Paths
 ALL_REPORTS_JSON = "all_reports.json"
