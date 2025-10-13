@@ -1,7 +1,13 @@
 import streamlit as st
 import pandas as pd
 import json
+import os
+import sys
 from pathlib import Path
+
+# Add parent directory to path for imports
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(parent_dir)
 
 st.set_page_config(layout="wide", page_title="Ticker Mapping Admin")
 
@@ -65,15 +71,19 @@ def get_filtered_options(commo_df, group=None, region=None):
     return regions, items
 
 def load_mappings():
-    """Load ticker mappings from JSON"""
-    with open(MAPPING_JSON_PATH, 'r') as f:
-        return json.load(f)
+    """Load ticker mappings from MongoDB"""
+    from mongodb_utils import load_ticker_mappings
+    return load_ticker_mappings()
 
 def save_mappings(mappings):
-    """Save ticker mappings to JSON"""
-    with open(MAPPING_JSON_PATH, 'w') as f:
-        json.dump(mappings, f, indent=2)
-    st.success("✅ Mappings saved successfully!")
+    """Save ticker mappings to MongoDB"""
+    from mongodb_utils import save_ticker_mappings
+
+    success = save_ticker_mappings(mappings)
+    if success:
+        st.success("✅ Mappings saved successfully to MongoDB!")
+    else:
+        st.error("❌ Failed to save mappings to MongoDB")
 
 def find_ticker_index(mappings, ticker):
     """Find index of ticker in mappings list"""

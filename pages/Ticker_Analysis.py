@@ -28,9 +28,10 @@ def load_data():
 
 @st.cache_data
 def load_ticker_mapping():
-    mapping_path = os.path.join(parent_dir, 'ticker_mappings_final.json')
-    with open(mapping_path, 'r') as f:
-        return json.load(f)
+    # Add parent directory to path for imports
+    sys.path.insert(0, parent_dir)
+    from mongodb_utils import load_ticker_mappings
+    return load_ticker_mappings()
 
 @st.cache_data
 def build_indexes(df):

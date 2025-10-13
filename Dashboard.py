@@ -229,9 +229,9 @@ with col_update:
         </div>
     """, unsafe_allow_html=True)
 
-# Load ticker mappings and calculate spreads
-with open('ticker_mappings_final.json', 'r') as f:
-    ticker_mapping = json.load(f)
+# Load ticker mappings from MongoDB
+from mongodb_utils import load_ticker_mappings
+ticker_mapping = load_ticker_mappings()
 
 spreads_df = calculate_all_ticker_spreads(df, all_indexes, regional_indexes, ticker_mapping)
 
