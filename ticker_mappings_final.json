@@ -14,13 +14,13 @@
         "group": "Pangaseus",
         "region": "Vietnam",
         "item": "ANV_China_ASP",
-        "sensitivity": null
+        "sensitivity": 0.5
       },
       {
         "group": "Pangaseus",
         "region": "Vietnam",
         "item": "ANV_USA_ASP",
-        "sensitivity": null
+        "sensitivity": 0.5
       }
     ]
   },
@@ -50,19 +50,7 @@
       {
         "group": "Hog",
         "region": "Vietnam",
-        "item": "Hog_corporate_20k_South",
-        "sensitivity": null
-      },
-      {
-        "group": "Hog",
-        "region": "Vietnam",
-        "item": "Hog_corporate_North",
-        "sensitivity": null
-      },
-      {
-        "group": "Hog",
-        "region": "Vietnam",
-        "item": "Hog_corporate_South",
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -366,7 +354,7 @@
       {
         "group": "Hog",
         "region": "Vietnam",
-        "item": "Hog_corporate_20k_South",
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -407,19 +395,13 @@
         "group": "Iron Ore",
         "region": "Global",
         "item": "Ore 62",
-        "sensitivity": null
-      },
-      {
-        "group": "Iron Ore",
-        "region": "Global",
-        "item": "Ore 68",
-        "sensitivity": null
+        "sensitivity": 0.7
       },
       {
         "group": "Met Coal",
         "region": "Global",
         "item": "Aus Met Coal",
-        "sensitivity": null
+        "sensitivity": 0.3
       }
     ],
     "outputs": [
@@ -451,20 +433,7 @@
   },
   {
     "ticker": "HSG",
-    "inputs": [
-      {
-        "group": "HRC",
-        "region": "Vietnam",
-        "item": "HRC HPG",
-        "sensitivity": null
-      },
-      {
-        "group": "HRC",
-        "region": "China",
-        "item": "China HRC",
-        "sensitivity": null
-      }
-    ],
+    "inputs": [],
     "outputs": []
   },
   {
@@ -500,19 +469,18 @@
   },
   {
     "ticker": "LAS",
-    "inputs": [
-      {
-        "group": "DAP",
-        "region": "China",
-        "item": "DAP China",
-        "sensitivity": null
-      }
-    ],
+    "inputs": [],
     "outputs": [
       {
         "group": "NPK",
         "region": "Vietnam",
         "item": "NPK_Camau",
+        "sensitivity": null
+      },
+      {
+        "group": "DAP",
+        "region": "China",
+        "item": "DAP China",
         "sensitivity": null
       }
     ]
@@ -538,12 +506,6 @@
         "region": "Vietnam",
         "item": "Rice VN Exports",
         "sensitivity": null
-      },
-      {
-        "group": "Grain",
-        "region": "Vietnam",
-        "item": "Rice VN Exports",
-        "sensitivity": null
       }
     ]
   },
@@ -553,19 +515,7 @@
       {
         "group": "Grain",
         "region": "Global",
-        "item": "Wheat",
-        "sensitivity": null
-      },
-      {
-        "group": "Grain",
-        "region": "Global",
-        "item": "Corn",
-        "sensitivity": null
-      },
-      {
-        "group": "Grain",
-        "region": "Global",
-        "item": "Soybean meal",
+        "item": null,
         "sensitivity": null
       }
     ],
@@ -573,19 +523,7 @@
       {
         "group": "Hog",
         "region": "Vietnam",
-        "item": "Hog_corporate_20k_South",
-        "sensitivity": null
-      },
-      {
-        "group": "Hog",
-        "region": "Vietnam",
-        "item": "Hog_corporate_North",
-        "sensitivity": null
-      },
-      {
-        "group": "Hog",
-        "region": "Vietnam",
-        "item": "Hog_corporate_South",
+        "item": null,
         "sensitivity": null
       }
     ]
@@ -653,12 +591,6 @@
     "ticker": "PAN",
     "inputs": [],
     "outputs": [
-      {
-        "group": "Grain",
-        "region": "Vietnam",
-        "item": "Rice VN Exports",
-        "sensitivity": null
-      },
       {
         "group": "Grain",
         "region": "Vietnam",
@@ -880,13 +812,13 @@
     "ticker": "VNM",
     "inputs": [
       {
-        "group": "Milk ",
+        "group": "Milk",
         "region": "Global",
         "item": "skim milk powder",
         "sensitivity": null
       },
       {
-        "group": "Milk ",
+        "group": "Milk",
         "region": "Global",
         "item": "whole milk powder",
         "sensitivity": null

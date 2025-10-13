@@ -88,22 +88,14 @@ def build_indexes(df):
 df = load_data()
 all_indexes, combined_df, regional_indexes, regional_combined_df = build_indexes(df)
 
-# Page Title
-st.title('📊 Commodity Group Analysis')
-
 # Sidebar for group selection
 selected_group = st.sidebar.selectbox(
     'Select Commodity Group',
     options=sorted(list(all_indexes.keys()))
 )
 
-# Display ticker components
-st.subheader(f'{selected_group} - Component Tickers')
-tickers = df[df['Group'] == selected_group]['Ticker'].unique()
-st.write(', '.join(sorted(tickers)))
-
-# Show summary statistics
-st.subheader('Performance Metrics')
+# Page Title with selected group
+st.title(f'📊 {selected_group}')
 index_data = combined_df[selected_group].dropna()
 col1, col2, col3 = st.columns(3)
 
@@ -117,21 +109,51 @@ with col3:
     change_50d = ((index_data.iloc[-1] / index_data.iloc[-51]) - 1) * 100 if len(index_data) >= 51 else 0
     st.metric('50D Change', f'{change_50d:.2f}%', delta=f'{change_50d:.2f}%')
 
-# Plot the selected index
-st.subheader(f'{selected_group} Index')
-
-# Filter to only dates with valid data for this index
-plot_df = combined_df[['Date', selected_group]].dropna()
+# View selection: Index or Components
+view_mode = st.radio(
+    'View Mode',
+    options=['Index', 'Components'],
+    horizontal=True
+)
 
 fig = go.Figure()
 
-fig.add_trace(go.Scatter(
-    x=plot_df['Date'],
-    y=plot_df[selected_group],
-    mode='lines',
-    name=selected_group,
-    line=dict(width=2)
-))
+if view_mode == 'Index':
+    # Plot the index
+    plot_df = combined_df[['Date', selected_group]].dropna()
+
+    fig.add_trace(go.Scatter(
+        x=plot_df['Date'],
+        y=plot_df[selected_group],
+        mode='lines',
+        name=selected_group,
+        line=dict(width=2)
+    ))
+else:
+    # Get component tickers
+    tickers = sorted(df[df['Group'] == selected_group]['Ticker'].unique())
+
+    # Multi-select for components
+    selected_tickers = st.multiselect(
+        'Select Components to Display',
+        options=tickers,
+        default=tickers[:3] if len(tickers) > 3 else tickers
+    )
+
+    if selected_tickers:
+        # Plot each selected ticker
+        for ticker in selected_tickers:
+            ticker_data = df[df['Ticker'] == ticker][['Date', 'Price']].sort_values('Date')
+
+            fig.add_trace(go.Scatter(
+                x=ticker_data['Date'],
+                y=ticker_data['Price'],
+                mode='lines',
+                name=ticker,
+                line=dict(width=2)
+            ))
+    else:
+        st.info('Please select at least one component to display.')
 
 fig.update_layout(
     xaxis_title='Date',
@@ -143,6 +165,10 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
+# Display ticker components below chart
+tickers = df[df['Group'] == selected_group]['Ticker'].unique()
+st.caption(f"**Component Tickers:** {', '.join(sorted(tickers))}")
+
 # Market News for Selected Group
 st.divider()
 st.subheader(f'📰 Latest News - {selected_group}')
@@ -150,9 +176,9 @@ st.subheader(f'📰 Latest News - {selected_group}')
 news_items = load_latest_news(selected_group)
 
 if news_items:
-    # Merge all news items into one text box
+    # Merge all news items into one text box with scrollable container
     merged_news = []
-    for item in news_items[:3]:  # Show latest 3 news items
+    for item in news_items:  # Show all news items
         # Escape special markdown characters
         news_text = item['news']
         news_text = news_text.replace('$', r'\$')
@@ -161,8 +187,12 @@ if news_items:
         # Add date header and news
         merged_news.append(f"**📅 {item['date']}**\n\n{news_text}")
 
-    # Display all merged news in one box
-    st.markdown("\n\n---\n\n".join(merged_news))
+    # Display all merged news in a scrollable container with max height
+    news_content = "\n\n---\n\n".join(merged_news)
+    st.markdown(
+        f'<div style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">{news_content}</div>',
+        unsafe_allow_html=True
+    )
 else:
     st.info(f"No recent news found for {selected_group}")
 
@@ -202,6 +232,10 @@ if len(regional_keys) > 0:
 
             st.plotly_chart(fig_regional, use_container_width=True)
 
+            # Show tickers in this region below chart
+            regional_tickers = df[(df['Group'] == selected_group) & (df['Region'] == region_name)]['Ticker'].unique()
+            st.caption(f"**Component Tickers ({region_name}):** {', '.join(sorted(regional_tickers))}")
+
             # Regional metrics
             regional_data = regional_combined_df[regional_key].dropna()
             col1r, col2r, col3r = st.columns(3)
@@ -215,8 +249,3 @@ if len(regional_keys) > 0:
             with col3r:
                 change_50d_r = ((regional_data.iloc[-1] / regional_data.iloc[-51]) - 1) * 100 if len(regional_data) >= 51 else 0
                 st.metric('50D Change', f'{change_50d_r:.2f}%', delta=f'{change_50d_r:.2f}%')
-
-            # Show tickers in this region
-            st.write(f"**Component Tickers ({region_name}):**")
-            regional_tickers = df[(df['Group'] == selected_group) & (df['Region'] == region_name)]['Ticker'].unique()
-            st.write(', '.join(sorted(regional_tickers)))

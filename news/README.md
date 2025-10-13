@@ -1,254 +1,288 @@
-# News Processing System - User Guide
+# PDF Report Processing System
 
-## 📋 Overview
+## Overview
 
-This system automatically extracts commodity market news from PDF reports, classifies them by commodity group, and makes them available to the dashboard.
+Automated system for processing PDF reports from multiple sources and generating structured summaries. Reports are processed based on series-specific prompts and all summaries are consolidated into `all_reports.json`.
+
+## Features
+
+✅ **Series-based prompt routing** - Automatic prompt selection based on report series
+✅ **Metadata tracking** - Source, series, date, and type metadata for each report
+✅ **Direct JSON writing** - No intermediate files, writes directly to `all_reports.json`
+✅ **Batch processing** - Process entire folders at once
+✅ **Portal-ready architecture** - Designed for future web upload interface
+
+## System Architecture
+
+```
+news/
+├── prompts/                          # Prompt system
+│   ├── __init__.py
+│   ├── prompt_router.py             # Series → Prompt mapping
+│   ├── commodity_prompts.py         # Multi-sector prompts
+│   └── sector_prompts.py            # Sector-specific prompts
+├── reports/                          # All PDF files (single folder)
+│   ├── JPM_ChemAgri_2025-10-03.pdf
+│   ├── JPM_GlobalCommodities_2025-10-06.pdf
+│   └── JPM_ContainerShipping_2025-08-10.pdf
+├── pdf_processor.py                  # Main processing script ⭐️
+├── all_reports.json                  # Consolidated output
+└── README.md                         # This file
+```
+
+---
+
+## 📝 Naming Convention
+
+**Required Format:**
+```
+{Source}_{Series}_{Date}.pdf
+```
+
+**Examples:**
+- `JPM_ChemAgri_2025-10-03.pdf` → JPM source, ChemAgri series
+- `CITI_Steel_2025-08-15.pdf` → CITI source, Steel series
+- `GS_GlobalCommodities_2025-09-01.pdf` → GS source, GlobalCommodities series
+
+**Rules:**
+- Source: Firm name (JPM, CITI, GS, etc.)
+- Series: Report series name (ChemAgri, Steel, etc.)
+- Date: YYYY-MM-DD format
+- Underscores separate components
+
+---
+
+## 📊 JSON Output Structure
+
+Each report in `all_reports.json` contains:
+
+```json
+{
+  "report_date": "2025-10-03",
+  "report_file": "JPM_ChemAgri_2025-10-03.pdf",
+  "report_source": "JPM",
+  "report_series": "ChemAgri",
+  "report_type": "commodity",
+  "commodity_news": {
+    "Oil": "Brent fell to $64.53/bbl...",
+    "Gas/LNG": "U.S. natural gas rose...",
+    ...
+  }
+}
+```
+
+---
+
+## 🎯 Series → Prompt Mapping
+
+Configured in `prompts/prompt_router.py`:
+
+### Commodity Reports (Multi-sector, 4 pages)
+- `ChemAgri` - Chemicals & Agriculture
+- `GlobalCommodities` - Global commodities overview
+- `WeeklyMarkets`, `DailyMarkets` - Market updates
+
+### Sector Reports (Focused, 10 pages)
+- `ContainerShipping` - Container shipping industry
+- `Steel`, `Oil`, `Banking` - Specific sectors
+
+**Adding New Series:**
+Edit `prompts/prompt_router.py` → `SERIES_PROMPT_MAP`
+
+---
+
+## 🚀 Usage
+
+### Process Single PDF
+
+```python
+from pdf_processor import process_pdf, OPENAI_API_KEY, DEFAULT_MODEL
+
+result = process_pdf(
+    pdf_path="reports/JPM_ChemAgri_2025-10-03.pdf",
+    api_key=OPENAI_API_KEY,
+    model=DEFAULT_MODEL
+)
+```
+
+### Batch Process Folder
+
+```python
+from pdf_processor import process_folder, OPENAI_API_KEY, DEFAULT_MODEL
+
+results = process_folder(
+    folder_path='reports/',
+    api_key=OPENAI_API_KEY,
+    model=DEFAULT_MODEL
+)
+```
+
+### Add New Report
+
+1. Name PDF: `Source_Series_Date.pdf`
+2. Place in `reports/` folder
+3. Run: `process_pdf("reports/JPM_ChemAgri_2025-10-11.pdf", api_key=OPENAI_API_KEY)`
+4. Report auto-added to `all_reports.json` ✅
 
 ---
 
 ## 🔄 Processing Flow
 
 ```
-PDF Report → Extract Text → Convert to Markdown → Send to OpenAI → Get JSON by Commodity → Save Files → Consolidate
-```
-
-### Detailed Process
-
-1. **PDF Text Extraction** (`extract_pdf_text()`)
-   - Opens PDF using PyMuPDF (fitz library)
-   - Extracts first 4 pages by default (configurable with `max_pages`)
-   - Returns raw text content
-
-2. **Markdown Conversion** (`convert_to_markdown()`)
-   - Formats raw text into structured markdown
-   - Detects headings (ALL CAPS text)
-   - Preserves bullet points and page markers
-
-3. **ChatGPT Summarization** (`summarize_with_chatgpt()`)
-   - Loads commodity groups from `commo_list.xlsx`
-   - Sends markdown + prompt to OpenAI API
-   - Prompt asks AI to extract news for each commodity group
-   - Returns JSON: `{"Group Name": "news summary", ...}`
-
-4. **Save Outputs** (`process_pdf()`)
-   - Extracts date from filename (e.g., `JPM_2025-09-05.pdf` → `2025-09-05`)
-   - Saves **JSON file** with metadata
-   - Saves **Markdown file** for human-readable display
-
-5. **Consolidation** (`consolidate_summaries()`)
-   - Combines all individual JSONs into simple array
-   - Sorted by date (newest first)
-   - Dashboard reads from this consolidated file
-
----
-
-## 🚀 How to Process Reports
-
-### Simple Workflow (Most Common)
-
-**Process all new reports at once:**
-```bash
-cd news
-python process_reports.py
-```
-
-This **automatically**:
-- ✅ Processes **ALL** PDFs in `news/reports/` folder
-- ✅ Creates individual JSON files for each report
-- ✅ Consolidates everything into `all_reports.json` at the end
-
-**No manual consolidation step needed!**
-
----
-
-## 📝 Command Options
-
-| Command | Use Case | What It Does |
-|---------|----------|--------------|
-| `python process_reports.py` | **New batch of reports** | Processes all PDFs + auto-consolidates |
-| `python process_reports.py --file report.pdf` | **One new report** | Processes single PDF + consolidates |
-| `python process_reports.py --consolidate` | **Rebuild consolidated file** | Skips processing, just rebuilds `all_reports.json` |
-
-### Examples
-
-**Process specific report:**
-```bash
-python process_reports.py --file JPM_2025-09-12.pdf
-```
-
-**Only rebuild consolidated file (no PDF processing):**
-```bash
-python process_reports.py --consolidate
-```
-
-**Process PDFs from custom directory:**
-```bash
-python process_reports.py --reports-dir custom_folder
+1. Upload PDF to reports/
+2. Parse filename → Extract metadata
+3. Lookup series → Get prompt type
+4. Extract text (4 or 10 pages)
+5. Convert to markdown
+6. Send to ChatGPT
+7. Parse JSON response
+8. Add/update in all_reports.json
+9. Done! (No intermediate files)
 ```
 
 ---
 
-## 📁 File Structure
+## 🌐 Portal Integration (Future)
 
-### Before Processing
-```
-news/
-├── reports/
-│   ├── JPM_2025-09-05.pdf
-│   ├── JPM_2025-09-12.pdf
-│   └── JPM_2025-09-19.pdf
-├── process_reports.py
-└── pdf_to_markdown_summarizer.py
-```
+### Upload Flow
+1. User uploads PDF
+2. Portal validates filename
+3. Extracts source/series/date
+4. Shows preview
+5. Calls `process_pdf()`
+6. Returns summary
+7. Displays to user
 
-### After Processing
-```
-news/
-├── reports/
-│   └── [PDF files]
-├── JPM_2025-09-05_summary.json      ← Individual report (metadata + news)
-├── JPM_2025-09-05_summary.md        ← Human-readable version
-├── JPM_2025-09-12_summary.json      ← Individual report
-├── JPM_2025-09-12_summary.md        ← Human-readable version
-├── JPM_2025-09-19_summary.json      ← Individual report
-├── JPM_2025-09-19_summary.md        ← Human-readable version
-└── all_reports.json                 ← CONSOLIDATED FILE (dashboard uses this)
-```
+### Portal Features
+- Source/Series dropdowns
+- Auto-generate filename
+- Real-time processing status
+- Bulk upload support
 
 ---
 
-## 📊 JSON Structure
+## 🛠️ Maintenance
 
-### Individual Report JSON
-```json
-{
-  "report_date": "2025-09-05",
-  "report_file": "JPM_2025-09-05.pdf",
-  "commodity_news": {
-    "Oil": "WTI prices rose 3% on supply concerns...",
-    "Gas/LNG": "Henry Hub prices declined...",
-    "Urea": "India tendered 2.1mt at $460-465/t...",
-    "Grain": "USDA cut corn stocks-to-use..."
-  }
+### Add New Series
+```python
+# prompts/prompt_router.py
+SERIES_PROMPT_MAP = {
+    'NewSeries': 'commodity',  # or 'sector'
 }
 ```
 
-### Consolidated JSON (`all_reports.json`)
-Simple array of all reports, sorted by date (newest first):
+### Update Prompts
+Edit `prompts/commodity_prompts.py` or `prompts/sector_prompts.py`
 
-```json
-[
-  {
-    "report_date": "2025-09-12",
-    "report_file": "JPM_2025-09-12.pdf",
-    "commodity_news": {
-      "Oil": "Brent rose to $66.99/bbl...",
-      "Gas/LNG": "Natural gas fell to $2.94/mmBTU...",
-      ...
-    }
-  },
-  {
-    "report_date": "2025-09-05",
-    "report_file": "JPM_2025-09-05.pdf",
-    "commodity_news": {
-      "Oil": "Supply concerns...",
-      "Gas/LNG": "Prices declined...",
-      ...
-    }
-  }
-]
+### Troubleshooting
+- **Invalid filename**: Check `Source_Series_Date.pdf` format
+- **Series not recognized**: Add to `SERIES_PROMPT_MAP`
+- **API error**: Verify OpenAI API key
+
+---
+
+## ✅ Migration Complete
+
+**Old System:**
+- Keyword-based detection
+- Multiple folders
+- Individual summary files
+- Manual consolidation
+
+**New System:**
+- Series-based mapping ✅
+- Single reports/ folder ✅
+- Direct JSON writes ✅
+- No intermediate files ✅
+
+**All old reports renamed to include series name ✅**
+
+
+# Quick Start Guide
+
+## 🚀 Getting Started in 3 Steps
+
+### 1. Name Your PDF
+```
+{Source}_{Series}_{Date}.pdf
+```
+Example: `JPM_ChemAgri_2025-10-11.pdf`
+
+### 2. Place in reports/ Folder
+```
+news/reports/JPM_ChemAgri_2025-10-11.pdf
 ```
 
+### 3. Run Processor
+```python
+from pdf_processor import process_pdf, OPENAI_API_KEY, DEFAULT_MODEL
+
+process_pdf("reports/JPM_ChemAgri_2025-10-11.pdf",
+            api_key=OPENAI_API_KEY,
+            model=DEFAULT_MODEL)
+```
+
+**Done!** Check `all_reports.json` for the new report.
+
 ---
 
-## 🎯 Typical Workflow
+## 📁 Available Report Series
 
-1. **Add new PDF(s)** to `news/reports/` folder
-2. **Run processing**: `cd news && python process_reports.py`
-3. **Done!** Dashboard automatically shows updated news
+### Multi-Sector (4 pages extracted)
+- `ChemAgri` - Chemicals & Agriculture
+- `GlobalCommodities` - Global overview
+- `WeeklyMarkets` - Weekly updates
+- `DailyMarkets` - Daily updates
+
+### Sector-Specific (10 pages extracted)
+- `ContainerShipping`
+- `Steel`
+- `Oil`
+- `Banking`
 
 ---
 
-## ⚙️ Configuration
+## 🔧 Add New Series
 
-### OpenAI API Settings
-Edit `pdf_to_markdown_summarizer.py`:
+Edit `prompts/prompt_router.py`:
 
 ```python
-# Line 18-20
-DEFAULT_MAX_PAGES = 4                # How many pages to extract
-DEFAULT_MODEL = "gpt-5-mini"         # OpenAI model to use
-DEFAULT_TEMPERATURE = 1.0            # Temperature for AI generation
-
-# Line 22
-OPENAI_API_KEY = "sk-proj-..."       # Your API key
+SERIES_PROMPT_MAP = {
+    'MyNewSeries': 'commodity',  # or 'sector'
+}
 ```
-
-### Commodity Groups
-The system loads commodity groups from `../commo_list.xlsx` (Group column).
-
-If file not found, falls back to hardcoded list in `load_commodity_groups()` function.
 
 ---
 
-## 🔍 How Dashboard Uses This
+## 📝 Batch Processing
 
-The dashboard reads from `all_reports.json` (simple array):
+```python
+from pdf_processor import process_folder
 
-1. **Commodity Page** (`dashboard_app.py`):
-   - User selects a commodity group (e.g., "Oil")
-   - Dashboard calls `load_latest_news(group_name)`
-   - Function loops through all reports and extracts news for that group
-   - Displays latest 3 news items
-
-2. **News Browser Page** (`pages/JPM_News_Summary.py`):
-   - Displays all markdown summary files
-   - Shows reports sorted by date
+# Process all PDFs in reports/ folder
+results = process_folder('reports/',
+                         api_key=OPENAI_API_KEY,
+                         model=DEFAULT_MODEL)
+```
 
 ---
 
-## 🐛 Troubleshooting
+## ✅ What Changed
 
-### No PDFs found
-```
-⚠ No PDF files found in reports/
-```
-**Solution**: Make sure PDFs are in `news/reports/` folder
+### Before
+- Keyword detection
+- Multiple folders
+- Individual summary files
+- Manual consolidation
 
-### No summary files found
-```
-⚠ No summary files found
-```
-**Solution**: Run `python process_reports.py` first to create summaries
-
-### API key error
-```
-⚠ No API key provided
-```
-**Solution**: Set `OPENAI_API_KEY` in `pdf_to_markdown_summarizer.py` (line 22)
-
-### Failed to parse JSON
-```
-⚠ Failed to parse JSON response
-```
-**Solution**: AI response was not valid JSON. Check model name and try again.
+### After
+- Series-based mapping
+- Single reports/ folder
+- Direct JSON writes
+- Auto-consolidation
 
 ---
 
-## 📌 Important Notes
+## 📞 Need Help?
 
-- **Filename Format**: PDFs should contain date in format `YYYY-MM-DD` (e.g., `JPM_2025-09-05.pdf`)
-- **Simple Structure**: `all_reports.json` is just a flat array - easy to read and extend
-- **Consolidation**: Automatically runs after batch processing - no manual step needed
-- **Dashboard Integration**: Dashboard loops through array to find news by commodity
-- **API Costs**: Each report costs ~$0.01-0.05 depending on model and length
-
----
-
-## 🔗 Related Files
-
-- `pdf_to_markdown_summarizer.py` - Core processing engine
-- `process_reports.py` - Batch processing helper script
-- `../commo_dashboard.py` - Dashboard data loading functions
-- `../dashboard_app.py` - Main dashboard with news display
-- `../commo_list.xlsx` - Commodity group definitions
+See `README.md` for detailed documentation.
