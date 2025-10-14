@@ -509,8 +509,9 @@ with tab1:
         else:
             st.info("No commodity groups available to display")
 
-    with st.expander("Quick Viewer: View Top 5 in 50D", expanded=True):
-        render_commodity_quick_viewer()
+    st.divider()
+    st.markdown("### Quick Viewer: Top 5 Movers (50D)")
+    render_commodity_quick_viewer()
 
 with tab2:
     # Toggle between best benefited and worst hit
@@ -787,13 +788,14 @@ with tab2:
         else:
             st.info("No tickers available to display")
 
-    with st.expander("Quick Viewer: View Top 5 in 50D", expanded=True):
-        render_quick_viewer()
+    st.divider()
+    st.markdown("### Quick Viewer: Top 5 Movers (50D)")
+    render_quick_viewer()
 
 st.divider()
 
 # Latest Market News - Collapsible
-with st.expander("📰 Latest Market News - All Commodities", expanded=False):
+with st.expander("Latest Market News - All Commodities", expanded=False):
     # Collect all news from all groups
     all_news = []
     for group in all_indexes.keys():
