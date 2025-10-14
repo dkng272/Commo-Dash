@@ -216,7 +216,7 @@ all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes
 # Streamlit Dashboard
 col_title, col_update = st.columns([3, 1])
 with col_title:
-    st.title('Commodity Index Dashboard')
+    st.title('Commodity Dashboard')
 with col_update:
     # Last updated timestamp based on latest data date
     latest_data_date = df['Date'].max().strftime('%Y-%m-%d')
@@ -475,6 +475,36 @@ with tab1:
                 )
 
                 st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
+
+            # News section for selected group
+            st.divider()
+            st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <h3 style="color: white; margin: 0; font-size: 18px;">Latest News - {selected_group}</h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            news_items = load_latest_news(selected_group)
+
+            if news_items:
+                # Merge all news items into one text box with scrollable container (using HTML)
+                merged_news = []
+                for item in news_items:  # Show all news items
+                    # Escape special characters for HTML display
+                    news_text = item['news'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+                    # Add date header and news (using HTML for bold)
+                    merged_news.append(f"<strong>{item['date']}</strong><br><br>{news_text}")
+
+                # Display all merged news in a scrollable container with max height
+                news_content = "<hr>".join(merged_news)
+                st.markdown(
+                    f'<div style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">{news_content}</div>',
+                    unsafe_allow_html=True
+                )
+            else:
+                st.info(f"No recent news found for {selected_group}")
 
         else:
             st.info("No commodity groups available to display")
@@ -762,42 +792,33 @@ with tab2:
 
 st.divider()
 
-# Visual Section Container for Latest News
-st.markdown("""
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-        <h3 style="color: white; margin: 0; font-size: 18px;">Latest Market News</h3>
-        <p style="color: rgba(255,255,255,0.9); margin: 4px 0 0 0; font-size: 13px;">
-            Recent commodity updates across all sectors
-        </p>
-    </div>
-""", unsafe_allow_html=True)
+# Latest Market News - Collapsible
+with st.expander("📰 Latest Market News - All Commodities", expanded=False):
+    # Collect all news from all groups
+    all_news = []
+    for group in all_indexes.keys():
+        group_news = load_latest_news(group)
+        if group_news:
+            for item in group_news:
+                all_news.append({
+                    'date': item['date'],
+                    'group': group,
+                    'news': item['news']
+                })
 
-# Collect all news from all groups
-all_news = []
-for group in all_indexes.keys():
-    group_news = load_latest_news(group)
-    if group_news:
-        for item in group_news:
-            all_news.append({
-                'date': item['date'],
-                'group': group,
-                'news': item['news']
-            })
+    # Sort by date (newest first) and limit to 20
+    all_news_sorted = sorted(all_news, key=lambda x: x['date'], reverse=True)[:20]
 
-# Sort by date (newest first) and limit to 20
-all_news_sorted = sorted(all_news, key=lambda x: x['date'], reverse=True)[:20]
+    if all_news_sorted:
+        # Build all news cards HTML
+        all_cards_html = '<div style="max-height: 500px; overflow-y: auto; padding: 4px;">'
 
-if all_news_sorted:
-    # Build all news cards HTML
-    all_cards_html = '<div style="max-height: 500px; overflow-y: auto; padding: 4px;">'
+        for item in all_news_sorted:
+            # Escape special characters for HTML display
+            news_text = item['news'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-    for item in all_news_sorted:
-        # Escape special characters for HTML display
-        news_text = item['news'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-
-        # Add each card to the HTML string
-        all_cards_html += f'''<div style="background: white; border-left: 4px solid #667eea; padding: 16px; margin: 12px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); transition: box-shadow 0.3s ease;">
+            # Add each card to the HTML string
+            all_cards_html += f'''<div style="background: white; border-left: 4px solid #667eea; padding: 16px; margin: 12px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); transition: box-shadow 0.3s ease;">
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 <strong style="font-size: 14px; color: #333;">{item['date']}</strong>
 <span style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 4px 14px; border-radius: 16px; font-size: 12px; font-weight: 600;">{item['group']}</span>
@@ -805,10 +826,10 @@ if all_news_sorted:
 <p style="margin: 0; color: #555; line-height: 1.6; font-size: 14px;">{news_text}</p>
 </div>'''
 
-    all_cards_html += '</div>'
+        all_cards_html += '</div>'
 
-    # Display the scrollable container with all cards
-    st.markdown(all_cards_html, unsafe_allow_html=True)
-else:
-    st.info("No recent news available")
+        # Display the scrollable container with all cards
+        st.markdown(all_cards_html, unsafe_allow_html=True)
+    else:
+        st.info("No recent news available")
 
