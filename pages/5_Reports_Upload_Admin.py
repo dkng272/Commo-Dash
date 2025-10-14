@@ -74,6 +74,51 @@ if uploaded_file is not None:
         with col3:
             st.metric("Date", date)
 
+        # Check for duplicates in MongoDB
+        try:
+            from mongodb_utils import load_reports
+            existing_reports = load_reports()
+
+            is_duplicate = False
+            existing_report = None
+
+            if existing_reports:
+                for report in existing_reports:
+                    if report.get('report_file') == uploaded_file.name:
+                        is_duplicate = True
+                        existing_report = report
+                        break
+
+            if is_duplicate:
+                st.warning(f"""
+                ⚠️ **Duplicate Report Detected**
+
+                A report with this filename already exists in the database:
+                - **Source**: {existing_report.get('report_source', 'Unknown')}
+                - **Series**: {existing_report.get('report_series', 'Unknown')}
+                - **Date**: {existing_report.get('report_date', 'Unknown')}
+                - **Type**: {existing_report.get('report_type', 'Unknown')}
+
+                If you proceed, the existing report will be **replaced** with the new one.
+                """)
+
+                # Show preview of existing report
+                with st.expander("👁️ Preview Existing Report"):
+                    commodity_news = existing_report.get('commodity_news', {})
+                    non_empty = {k: v for k, v in commodity_news.items() if v and v.strip()}
+                    st.metric("Commodities Covered", f"{len(non_empty)}/{len(commodity_news)}")
+
+                    for commodity, news in commodity_news.items():
+                        if news and news.strip():
+                            st.markdown(f"**{commodity}**")
+                            st.markdown(news[:200] + "..." if len(news) > 200 else news)
+                            st.markdown("---")
+            else:
+                st.success("✅ **New Report** - No duplicate found")
+
+        except Exception as e:
+            st.error(f"Error checking for duplicates: {e}")
+
         st.divider()
 
         # Processing options
