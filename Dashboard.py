@@ -308,6 +308,253 @@ with tab1:
             hide_index=True
         )
 
+    # Quick Chart Viewer inside Stock Spreads tab
+    st.divider()
+
+    with st.expander("🔍 Quick Chart Viewer", expanded=False):
+        # Get top 5 tickers based on current selection
+        available_tickers = spreads_df.nlargest(5, 'Spread_50D')['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, 'Spread_50D')['Ticker'].tolist()
+
+        if available_tickers:
+            # Initialize session state for selected ticker
+            if 'quick_chart_ticker' not in st.session_state:
+                st.session_state.quick_chart_ticker = available_tickers[0]
+
+            # Reset to first ticker if current selection not in available list
+            if st.session_state.quick_chart_ticker not in available_tickers:
+                st.session_state.quick_chart_ticker = available_tickers[0]
+
+            # Quick switch buttons for top 5
+            st.caption("**Quick Switch:**")
+            btn_cols = st.columns(5)
+
+            for idx, ticker in enumerate(available_tickers):
+                with btn_cols[idx]:
+                    spread_val = spreads_df[spreads_df['Ticker'] == ticker]['Spread_50D'].values[0]
+                    button_label = f"#{idx+1} {ticker}\n({spread_val:+.1f}%)"
+                    if st.button(button_label, key=f"quick_btn_{idx}", use_container_width=True):
+                        st.session_state.quick_chart_ticker = ticker
+                        st.rerun()
+
+            st.divider()
+
+            # Use session state ticker
+            selected_chart_ticker = st.session_state.quick_chart_ticker
+
+            # Display current selection
+            col_info1, col_info2 = st.columns([3, 1])
+            with col_info1:
+                st.markdown(f"**Viewing: {selected_chart_ticker}**")
+            with col_info2:
+                st.metric("50D Spread",
+                         f"{spreads_df[spreads_df['Ticker'] == selected_chart_ticker]['Spread_50D'].values[0]:.2f}%",
+                         delta=None)
+
+            # Get ticker data
+            ticker_data = next((item for item in ticker_mapping if item['ticker'] == selected_chart_ticker), None)
+
+            if ticker_data:
+                # Fetch stock data
+                from ssi_api import fetch_historical_price
+                stock_data = fetch_historical_price(selected_chart_ticker, start_date='2024-01-01')
+
+                # Create 2x2 grid
+                chart_col1, chart_col2 = st.columns(2)
+
+                with chart_col1:
+                    # Input commodities chart
+                    st.markdown("**Input Commodities (Costs)**")
+                    fig_inputs = go.Figure()
+
+                    if ticker_data.get('inputs'):
+                        if len(ticker_data['inputs']) > 1:
+                            input_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
+                            label = 'Aggregated Input Index'
+                        else:
+                            input_data = get_index_data(
+                                ticker_data['inputs'][0]['item'],
+                                ticker_data['inputs'][0]['group'],
+                                ticker_data['inputs'][0]['region'],
+                                df, all_indexes, regional_indexes
+                            )
+                            label = ticker_data['inputs'][0]['group']
+
+                        if input_data is not None and not input_data.empty:
+                            first_price = input_data['Price'].dropna().iloc[0]
+                            if first_price:
+                                input_data['Normalized'] = (input_data['Price'] / first_price) * 100
+                                fig_inputs.add_trace(go.Scatter(
+                                    x=input_data['Date'],
+                                    y=input_data['Normalized'],
+                                    mode='lines',
+                                    name=label,
+                                    line=dict(color='#ff6b6b', width=2)
+                                ))
+
+                    fig_inputs.update_layout(
+                        xaxis_title='', yaxis_title='Index (Base=100)',
+                        hovermode='x', template='plotly_white', height=300,
+                        showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
+                    )
+                    st.plotly_chart(fig_inputs, use_container_width=True, key="input_chart")
+
+                with chart_col2:
+                    # Output commodities chart
+                    st.markdown("**Output Commodities (Products)**")
+                    fig_outputs = go.Figure()
+
+                    if ticker_data.get('outputs'):
+                        if len(ticker_data['outputs']) > 1:
+                            output_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
+                            label = 'Aggregated Output Index'
+                        else:
+                            output_data = get_index_data(
+                                ticker_data['outputs'][0]['item'],
+                                ticker_data['outputs'][0]['group'],
+                                ticker_data['outputs'][0]['region'],
+                                df, all_indexes, regional_indexes
+                            )
+                            label = ticker_data['outputs'][0]['group']
+
+                        if output_data is not None and not output_data.empty:
+                            first_price = output_data['Price'].dropna().iloc[0]
+                            if first_price:
+                                output_data['Normalized'] = (output_data['Price'] / first_price) * 100
+                                fig_outputs.add_trace(go.Scatter(
+                                    x=output_data['Date'],
+                                    y=output_data['Normalized'],
+                                    mode='lines',
+                                    name=label,
+                                    line=dict(color='#4ecdc4', width=2)
+                                ))
+
+                    fig_outputs.update_layout(
+                        xaxis_title='', yaxis_title='Index (Base=100)',
+                        hovermode='x', template='plotly_white', height=300,
+                        showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
+                    )
+                    st.plotly_chart(fig_outputs, use_container_width=True, key="output_chart")
+
+                chart_col3, chart_col4 = st.columns(2)
+
+                with chart_col3:
+                    # Stock price chart
+                    st.markdown(f"**{selected_chart_ticker} Stock Price**")
+                    fig_stock = go.Figure()
+
+                    if stock_data is not None and not stock_data.empty:
+                        stock_data = stock_data.sort_values('Date')
+                        first_price = stock_data['Price'].iloc[0]
+                        stock_data['Normalized'] = (stock_data['Price'] / first_price) * 100
+
+                        fig_stock.add_trace(go.Scatter(
+                            x=stock_data['Date'],
+                            y=stock_data['Normalized'],
+                            mode='lines',
+                            name=selected_chart_ticker,
+                            line=dict(color='#95a5a6', width=2)
+                        ))
+
+                    fig_stock.update_layout(
+                        xaxis_title='', yaxis_title='Index (Base=100)',
+                        hovermode='x', template='plotly_white', height=300,
+                        showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
+                    )
+                    st.plotly_chart(fig_stock, use_container_width=True, key="stock_chart")
+
+                with chart_col4:
+                    # Spread chart
+                    st.markdown("**Spread (Output - Input)**")
+                    fig_spread = go.Figure()
+
+                    # Get input data
+                    input_normalized = None
+                    if ticker_data.get('inputs'):
+                        if len(ticker_data['inputs']) > 1:
+                            input_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
+                        else:
+                            input_data = get_index_data(
+                                ticker_data['inputs'][0]['item'],
+                                ticker_data['inputs'][0]['group'],
+                                ticker_data['inputs'][0]['region'],
+                                df, all_indexes, regional_indexes
+                            )
+
+                        if input_data is not None and not input_data.empty:
+                            input_first = input_data['Price'].dropna().iloc[0]
+                            if input_first:
+                                input_normalized = input_data.copy()
+                                input_normalized['Normalized'] = (input_normalized['Price'] / input_first) * 100
+
+                    # Get output data
+                    output_normalized = None
+                    if ticker_data.get('outputs'):
+                        if len(ticker_data['outputs']) > 1:
+                            output_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
+                        else:
+                            output_data = get_index_data(
+                                ticker_data['outputs'][0]['item'],
+                                ticker_data['outputs'][0]['group'],
+                                ticker_data['outputs'][0]['region'],
+                                df, all_indexes, regional_indexes
+                            )
+
+                        if output_data is not None and not output_data.empty:
+                            output_first = output_data['Price'].dropna().iloc[0]
+                            if output_first:
+                                output_normalized = output_data.copy()
+                                output_normalized['Normalized'] = (output_normalized['Price'] / output_first) * 100
+
+                    # Handle missing inputs/outputs by treating as flat line at base 100 (0% change)
+                    if input_normalized is None and output_normalized is not None:
+                        # Missing input - create flat line at 100
+                        input_normalized = output_normalized[['Date']].copy()
+                        input_normalized['Normalized'] = 100
+
+                    if output_normalized is None and input_normalized is not None:
+                        # Missing output - create flat line at 100
+                        output_normalized = input_normalized[['Date']].copy()
+                        output_normalized['Normalized'] = 100
+
+                    # Calculate spread if we have data
+                    if input_normalized is not None and output_normalized is not None:
+                        # Merge and calculate spread
+                        merged = pd.merge(
+                            input_normalized[['Date', 'Normalized']].rename(columns={'Normalized': 'Input'}),
+                            output_normalized[['Date', 'Normalized']].rename(columns={'Normalized': 'Output'}),
+                            on='Date', how='inner'
+                        )
+
+                        if not merged.empty:
+                            merged['Spread'] = merged['Output'] - merged['Input']
+                            merged['MA20'] = merged['Spread'].rolling(20, min_periods=1).mean()
+
+                            fig_spread.add_trace(go.Scatter(
+                                x=merged['Date'],
+                                y=merged['MA20'],
+                                mode='lines',
+                                name='Spread MA20',
+                                line=dict(color='#2ecc71', width=2),
+                                fill='tozeroy',
+                                fillcolor='rgba(46, 204, 113, 0.2)'
+                            ))
+                            fig_spread.add_hline(y=0, line=dict(color='gray', dash='dash', width=1))
+
+                    fig_spread.update_layout(
+                        xaxis_title='', yaxis_title='Spread Points',
+                        hovermode='x', template='plotly_white', height=300,
+                        showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
+                    )
+                    st.plotly_chart(fig_spread, use_container_width=True, key="spread_chart")
+
+                # Link to full analysis
+                st.divider()
+                st.markdown(f"[🔍 View Full Analysis for {selected_chart_ticker}](Ticker_Analysis?ticker={selected_chart_ticker})")
+            else:
+                st.warning(f"No commodity mapping found for {selected_chart_ticker}")
+        else:
+            st.info("No tickers available to display")
+
 with tab2:
     # Summary Table - Largest Swings
 
@@ -371,241 +618,6 @@ with tab2:
             top_150d[['Group', '150D Change (%)']].style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
             hide_index=True
         )
-
-st.divider()
-
-# Quick Chart Viewer Section
-st.markdown("""
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-        <h3 style="color: white; margin: 0; font-size: 18px;">📊 Quick Chart Viewer</h3>
-        <p style="color: rgba(255,255,255,0.9); margin: 4px 0 0 0; font-size: 13px;">
-            Visualize top movers without leaving the dashboard
-        </p>
-    </div>
-""", unsafe_allow_html=True)
-
-with st.expander("🔍 View Charts", expanded=False):
-    # Get top 5 tickers based on current selection
-    available_tickers = spreads_df.nlargest(5, 'Spread_50D')['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, 'Spread_50D')['Ticker'].tolist()
-
-    if available_tickers:
-        # Ticker selection controls
-        col1, col2 = st.columns([3, 1])
-
-        with col1:
-            selected_chart_ticker = st.selectbox(
-                "Select Ticker",
-                options=available_tickers,
-                index=0,
-                key="chart_ticker_selector",
-                help="Choose from top 5 movers"
-            )
-
-        with col2:
-            st.metric("Current Spread (50D)",
-                     f"{spreads_df[spreads_df['Ticker'] == selected_chart_ticker]['Spread_50D'].values[0]:.2f}%",
-                     delta=None)
-
-        # Quick switch buttons for top 3
-        st.caption("**Quick Switch:**")
-        col_btn1, col_btn2, col_btn3, col_btn_spacer = st.columns([1, 1, 1, 6])
-
-        for idx, ticker in enumerate(available_tickers[:3]):
-            with [col_btn1, col_btn2, col_btn3][idx]:
-                spread_val = spreads_df[spreads_df['Ticker'] == ticker]['Spread_50D'].values[0]
-                button_label = f"#{idx+1} {ticker} ({spread_val:+.1f}%)"
-                if st.button(button_label, key=f"quick_btn_{idx}", use_container_width=True):
-                    selected_chart_ticker = ticker
-                    st.rerun()
-
-        st.divider()
-
-        # Get ticker data
-        ticker_data = next((item for item in ticker_mapping if item['ticker'] == selected_chart_ticker), None)
-
-        if ticker_data:
-            # Fetch stock data
-            from ssi_api import fetch_historical_price
-            stock_data = fetch_historical_price(selected_chart_ticker, start_date='2024-01-01')
-
-            # Create 2x2 grid
-            chart_col1, chart_col2 = st.columns(2)
-
-            with chart_col1:
-                # Input commodities chart
-                st.markdown("**Input Commodities (Costs)**")
-                fig_inputs = go.Figure()
-
-                if ticker_data.get('inputs'):
-                    if len(ticker_data['inputs']) > 1:
-                        input_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
-                        label = 'Aggregated Input Index'
-                    else:
-                        input_data = get_index_data(
-                            ticker_data['inputs'][0]['item'],
-                            ticker_data['inputs'][0]['group'],
-                            ticker_data['inputs'][0]['region'],
-                            df, all_indexes, regional_indexes
-                        )
-                        label = ticker_data['inputs'][0]['group']
-
-                    if input_data is not None and not input_data.empty:
-                        first_price = input_data['Price'].dropna().iloc[0]
-                        if first_price:
-                            input_data['Normalized'] = (input_data['Price'] / first_price) * 100
-                            fig_inputs.add_trace(go.Scatter(
-                                x=input_data['Date'],
-                                y=input_data['Normalized'],
-                                mode='lines',
-                                name=label,
-                                line=dict(color='#ff6b6b', width=2)
-                            ))
-
-                fig_inputs.update_layout(
-                    xaxis_title='', yaxis_title='Index (Base=100)',
-                    hovermode='x', template='plotly_white', height=300,
-                    showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
-                )
-                st.plotly_chart(fig_inputs, use_container_width=True, key="input_chart")
-
-            with chart_col2:
-                # Output commodities chart
-                st.markdown("**Output Commodities (Products)**")
-                fig_outputs = go.Figure()
-
-                if ticker_data.get('outputs'):
-                    if len(ticker_data['outputs']) > 1:
-                        output_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
-                        label = 'Aggregated Output Index'
-                    else:
-                        output_data = get_index_data(
-                            ticker_data['outputs'][0]['item'],
-                            ticker_data['outputs'][0]['group'],
-                            ticker_data['outputs'][0]['region'],
-                            df, all_indexes, regional_indexes
-                        )
-                        label = ticker_data['outputs'][0]['group']
-
-                    if output_data is not None and not output_data.empty:
-                        first_price = output_data['Price'].dropna().iloc[0]
-                        if first_price:
-                            output_data['Normalized'] = (output_data['Price'] / first_price) * 100
-                            fig_outputs.add_trace(go.Scatter(
-                                x=output_data['Date'],
-                                y=output_data['Normalized'],
-                                mode='lines',
-                                name=label,
-                                line=dict(color='#4ecdc4', width=2)
-                            ))
-
-                fig_outputs.update_layout(
-                    xaxis_title='', yaxis_title='Index (Base=100)',
-                    hovermode='x', template='plotly_white', height=300,
-                    showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
-                )
-                st.plotly_chart(fig_outputs, use_container_width=True, key="output_chart")
-
-            chart_col3, chart_col4 = st.columns(2)
-
-            with chart_col3:
-                # Stock price chart
-                st.markdown(f"**{selected_chart_ticker} Stock Price**")
-                fig_stock = go.Figure()
-
-                if stock_data is not None and not stock_data.empty:
-                    stock_data = stock_data.sort_values('Date')
-                    first_price = stock_data['Price'].iloc[0]
-                    stock_data['Normalized'] = (stock_data['Price'] / first_price) * 100
-
-                    fig_stock.add_trace(go.Scatter(
-                        x=stock_data['Date'],
-                        y=stock_data['Normalized'],
-                        mode='lines',
-                        name=selected_chart_ticker,
-                        line=dict(color='#95a5a6', width=2)
-                    ))
-
-                fig_stock.update_layout(
-                    xaxis_title='', yaxis_title='Index (Base=100)',
-                    hovermode='x', template='plotly_white', height=300,
-                    showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
-                )
-                st.plotly_chart(fig_stock, use_container_width=True, key="stock_chart")
-
-            with chart_col4:
-                # Spread chart
-                st.markdown("**Spread (Output - Input)**")
-                fig_spread = go.Figure()
-
-                # Calculate spread
-                if ticker_data.get('inputs') and ticker_data.get('outputs'):
-                    if len(ticker_data['inputs']) > 1:
-                        input_data = create_aggregated_index(ticker_data['inputs'], df, all_indexes, regional_indexes)
-                    else:
-                        input_data = get_index_data(
-                            ticker_data['inputs'][0]['item'],
-                            ticker_data['inputs'][0]['group'],
-                            ticker_data['inputs'][0]['region'],
-                            df, all_indexes, regional_indexes
-                        )
-
-                    if len(ticker_data['outputs']) > 1:
-                        output_data = create_aggregated_index(ticker_data['outputs'], df, all_indexes, regional_indexes)
-                    else:
-                        output_data = get_index_data(
-                            ticker_data['outputs'][0]['item'],
-                            ticker_data['outputs'][0]['group'],
-                            ticker_data['outputs'][0]['region'],
-                            df, all_indexes, regional_indexes
-                        )
-
-                    if input_data is not None and output_data is not None:
-                        # Normalize both
-                        input_first = input_data['Price'].dropna().iloc[0]
-                        output_first = output_data['Price'].dropna().iloc[0]
-
-                        if input_first and output_first:
-                            input_norm = input_data.copy()
-                            output_norm = output_data.copy()
-                            input_norm['Normalized'] = (input_norm['Price'] / input_first) * 100
-                            output_norm['Normalized'] = (output_norm['Price'] / output_first) * 100
-
-                            # Merge and calculate spread
-                            merged = pd.merge(
-                                input_norm[['Date', 'Normalized']].rename(columns={'Normalized': 'Input'}),
-                                output_norm[['Date', 'Normalized']].rename(columns={'Normalized': 'Output'}),
-                                on='Date', how='inner'
-                            )
-
-                            if not merged.empty:
-                                merged['Spread'] = merged['Output'] - merged['Input']
-                                merged['MA20'] = merged['Spread'].rolling(20, min_periods=1).mean()
-
-                                fig_spread.add_trace(go.Scatter(
-                                    x=merged['Date'],
-                                    y=merged['MA20'],
-                                    mode='lines',
-                                    name='Spread MA20',
-                                    line=dict(color='#2ecc71', width=2),
-                                    fill='tozeroy',
-                                    fillcolor='rgba(46, 204, 113, 0.2)'
-                                ))
-                                fig_spread.add_hline(y=0, line=dict(color='gray', dash='dash', width=1))
-
-                fig_spread.update_layout(
-                    xaxis_title='', yaxis_title='Spread Points',
-                    hovermode='x', template='plotly_white', height=300,
-                    showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
-                )
-                st.plotly_chart(fig_spread, use_container_width=True, key="spread_chart")
-
-            # Link to full analysis
-            st.markdown(f"[🔍 View Full Analysis for {selected_chart_ticker}](Ticker_Analysis?ticker={selected_chart_ticker})")
-        else:
-            st.warning(f"No commodity mapping found for {selected_chart_ticker}")
-    else:
-        st.info("No tickers available to display")
 
 st.divider()
 
