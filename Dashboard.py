@@ -311,7 +311,7 @@ with tab1:
     # Quick Chart Viewer inside Stock Spreads tab
     st.divider()
 
-    with st.expander("🔍 Quick Chart Viewer", expanded=False):
+    with st.expander("Quick Viewer", expanded=False):
         # Get top 5 tickers based on current selection
         available_tickers = spreads_df.nlargest(5, 'Spread_50D')['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, 'Spread_50D')['Ticker'].tolist()
 
@@ -334,21 +334,28 @@ with tab1:
                     button_label = f"#{idx+1} {ticker}\n({spread_val:+.1f}%)"
                     if st.button(button_label, key=f"quick_btn_{idx}", use_container_width=True):
                         st.session_state.quick_chart_ticker = ticker
-                        st.rerun()
 
             st.divider()
 
-            # Use session state ticker
-            selected_chart_ticker = st.session_state.quick_chart_ticker
+            # Ticker selector dropdown (syncs with buttons via session state)
+            col_select, col_metric = st.columns([3, 1])
+            with col_select:
+                selected_chart_ticker = st.selectbox(
+                    "Select Ticker",
+                    options=available_tickers,
+                    index=available_tickers.index(st.session_state.quick_chart_ticker) if st.session_state.quick_chart_ticker in available_tickers else 0,
+                    key="chart_ticker_selector",
+                    help="Type or select from top 5 movers"
+                )
+                # Update session state from selectbox
+                st.session_state.quick_chart_ticker = selected_chart_ticker
 
-            # Display current selection
-            col_info1, col_info2 = st.columns([3, 1])
-            with col_info1:
-                st.markdown(f"**Viewing: {selected_chart_ticker}**")
-            with col_info2:
+            with col_metric:
                 st.metric("50D Spread",
                          f"{spreads_df[spreads_df['Ticker'] == selected_chart_ticker]['Spread_50D'].values[0]:.2f}%",
                          delta=None)
+
+            st.divider()
 
             # Get ticker data
             ticker_data = next((item for item in ticker_mapping if item['ticker'] == selected_chart_ticker), None)
