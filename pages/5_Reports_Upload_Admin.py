@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import sys
 import tempfile
+import pandas as pd
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Reports Upload Admin")
 
@@ -66,15 +67,33 @@ if uploaded_file is not None:
         series = match.group(2)
         date = match.group(3)
 
+        # File renaming section
+        st.subheader("📝 File Metadata")
+        st.caption("You can edit the filename components below if needed")
+
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Source", source)
+            edited_source = st.text_input("Source", value=source, help="Report publisher (e.g., JPM, HSBC)")
         with col2:
-            st.metric("Series", series)
+            edited_series = st.text_input("Series", value=series, help="Report series name")
         with col3:
-            st.metric("Date", date)
+            edited_date = st.date_input("Date", value=pd.to_datetime(date), help="Report date")
+            edited_date_str = edited_date.strftime('%Y-%m-%d')
 
-        # Check for duplicates in MongoDB
+        # Generate new filename
+        new_filename = f"{edited_source}_{edited_series}_{edited_date_str}.pdf"
+
+        # Show if filename changed
+        if new_filename != uploaded_file.name:
+            st.info(f"""
+            📝 **Filename will be changed**:
+            - Original: `{uploaded_file.name}`
+            - New: `{new_filename}`
+            """)
+        else:
+            st.success(f"✅ **Filename**: `{new_filename}`")
+
+        # Check for duplicates in MongoDB (using new filename)
         try:
             from mongodb_utils import load_reports
             existing_reports = load_reports()
@@ -84,7 +103,7 @@ if uploaded_file is not None:
 
             if existing_reports:
                 for report in existing_reports:
-                    if report.get('report_file') == uploaded_file.name:
+                    if report.get('report_file') == new_filename:
                         is_duplicate = True
                         existing_report = report
                         break
@@ -160,10 +179,10 @@ if uploaded_file is not None:
                     # Import processor
                     from pdf_processor_mongodb import process_pdf_to_mongodb
 
-                    # Process PDF
+                    # Process PDF (use new filename)
                     result = process_pdf_to_mongodb(
                         tmp_path,
-                        filename=uploaded_file.name,
+                        filename=new_filename,
                         model=model,
                         temperature=temperature
                     )
