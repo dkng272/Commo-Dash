@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import json
-from datetime import datetime
-from commo_dashboard import create_equal_weight_index, create_weighted_index, create_regional_indexes, create_sector_indexes, load_latest_news
+from commo_dashboard import create_equal_weight_index, create_regional_indexes, create_sector_indexes, load_latest_news
 from classification_loader import load_data_with_classification
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
@@ -316,44 +314,13 @@ with tab1:
         available_tickers = spreads_df.nlargest(5, 'Spread_50D')['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, 'Spread_50D')['Ticker'].tolist()
 
         if available_tickers:
-            # Initialize session state for selected ticker
-            if 'quick_chart_ticker' not in st.session_state:
-                st.session_state.quick_chart_ticker = available_tickers[0]
-
-            # Reset to first ticker if current selection not in available list
-            if st.session_state.quick_chart_ticker not in available_tickers:
-                st.session_state.quick_chart_ticker = available_tickers[0]
-
-            # Quick switch buttons for top 5
-            st.caption("**Quick Switch:**")
-            btn_cols = st.columns(5)
-
-            for idx, ticker in enumerate(available_tickers):
-                with btn_cols[idx]:
-                    spread_val = spreads_df[spreads_df['Ticker'] == ticker]['Spread_50D'].values[0]
-                    button_label = f"#{idx+1} {ticker}\n({spread_val:+.1f}%)"
-                    if st.button(button_label, key=f"quick_btn_{idx}", use_container_width=True):
-                        st.session_state.quick_chart_ticker = ticker
-
-            st.divider()
-
-            # Ticker selector dropdown (syncs with buttons via session state)
-            col_select, col_metric = st.columns([3, 1])
-            with col_select:
-                selected_chart_ticker = st.selectbox(
-                    "Select Ticker",
-                    options=available_tickers,
-                    index=available_tickers.index(st.session_state.quick_chart_ticker) if st.session_state.quick_chart_ticker in available_tickers else 0,
-                    key="chart_ticker_selector",
-                    help="Type or select from top 5 movers"
-                )
-                # Update session state from selectbox
-                st.session_state.quick_chart_ticker = selected_chart_ticker
-
-            with col_metric:
-                st.metric("50D Spread",
-                         f"{spreads_df[spreads_df['Ticker'] == selected_chart_ticker]['Spread_50D'].values[0]:.2f}%",
-                         delta=None)
+            # Simple dropdown selector
+            selected_chart_ticker = st.selectbox(
+                "Select Ticker",
+                options=available_tickers,
+                index=0,
+                help="Type or select from top 5 movers (50D spread)"
+            )
 
             st.divider()
 
