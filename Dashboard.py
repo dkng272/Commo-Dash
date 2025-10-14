@@ -591,6 +591,140 @@ with tab2:
             hide_index=True
         )
 
+    # Quick Viewer for Commodity Index Swings
+    @st.fragment
+    def render_commodity_quick_viewer():
+        # Get top 5 groups by 50D absolute swing
+        available_groups = summary_df.nlargest(5, '50D Abs Swing')['Group'].tolist()
+
+        if available_groups:
+            # Dropdown selector
+            selected_group = st.selectbox(
+                "Select Commodity Group",
+                options=available_groups,
+                index=0,
+                help="Top 5 commodity groups by 50D swing",
+                key="commodity_group_selector"
+            )
+
+            st.divider()
+
+            # Get group metrics
+            group_metrics = summary_df[summary_df['Group'] == selected_group].iloc[0]
+
+            # Display key metrics
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            with metric_col1:
+                st.metric("5D Change", f"{group_metrics['5D Change (%)']:.2f}%")
+            with metric_col2:
+                st.metric("10D Change", f"{group_metrics['10D Change (%)']:.2f}%")
+            with metric_col3:
+                st.metric("50D Change", f"{group_metrics['50D Change (%)']:.2f}%")
+            with metric_col4:
+                st.metric("150D Change", f"{group_metrics['150D Change (%)']:.2f}%")
+
+            st.divider()
+
+            # Create 2-column layout
+            chart_col1, chart_col2 = st.columns(2)
+
+            with chart_col1:
+                # Group Index Chart
+                st.markdown(f"**{selected_group} Index**")
+                fig_group = go.Figure()
+
+                # Get group index data
+                group_index = all_indexes[selected_group].copy()
+                group_index = group_index.sort_values('Date')
+
+                # Normalize to base 100
+                first_value = group_index['Index_Value'].iloc[0]
+                group_index['Normalized'] = (group_index['Index_Value'] / first_value) * 100
+
+                # Add moving averages
+                group_index['MA20'] = group_index['Normalized'].rolling(20, min_periods=1).mean()
+                group_index['MA50'] = group_index['Normalized'].rolling(50, min_periods=1).mean()
+
+                # Plot index
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['Normalized'],
+                    mode='lines',
+                    name='Index',
+                    line=dict(color='#667eea', width=2.5)
+                ))
+
+                # Plot MAs
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['MA20'],
+                    mode='lines',
+                    name='MA20',
+                    line=dict(color='#ffa500', width=1.5, dash='dash')
+                ))
+
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['MA50'],
+                    mode='lines',
+                    name='MA50',
+                    line=dict(color='#ff6b6b', width=1.5, dash='dot')
+                ))
+
+                fig_group.update_layout(
+                    xaxis_title='', yaxis_title='Index (Base=100)',
+                    hovermode='x unified', template='plotly_white', height=400,
+                    showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(l=10, r=10, t=30, b=30)
+                )
+
+                st.plotly_chart(fig_group, use_container_width=True, key="group_index_chart")
+
+            with chart_col2:
+                # Component Tickers Chart
+                st.markdown(f"**Component Tickers in {selected_group}**")
+                fig_components = go.Figure()
+
+                # Get all tickers in this group
+                group_tickers = df[df['Group'] == selected_group].copy()
+                tickers_list = group_tickers['Ticker'].unique()
+
+                # Color palette for tickers
+                colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a', '#fee140', '#30cfd0']
+
+                for idx, ticker in enumerate(tickers_list):
+                    ticker_data = group_tickers[group_tickers['Ticker'] == ticker].copy()
+                    ticker_data = ticker_data.sort_values('Date')
+
+                    if not ticker_data.empty:
+                        # Normalize to base 100
+                        first_price = ticker_data['Price'].iloc[0]
+                        ticker_data['Normalized'] = (ticker_data['Price'] / first_price) * 100
+
+                        fig_components.add_trace(go.Scatter(
+                            x=ticker_data['Date'],
+                            y=ticker_data['Normalized'],
+                            mode='lines',
+                            name=ticker,
+                            line=dict(color=colors[idx % len(colors)], width=2),
+                            opacity=0.7
+                        ))
+
+                fig_components.update_layout(
+                    xaxis_title='', yaxis_title='Index (Base=100)',
+                    hovermode='x unified', template='plotly_white', height=400,
+                    showlegend=True, legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+                    margin=dict(l=10, r=10, t=30, b=30)
+                )
+
+                st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
+
+        else:
+            st.info("No commodity groups available to display")
+
+    with st.expander("Quick Viewer", expanded=True):
+        render_commodity_quick_viewer()
+
 st.divider()
 
 # Visual Section Container for Latest News
