@@ -46,10 +46,10 @@ if uploaded_file is not None:
     # Display file info
     st.info(f"**Filename**: {uploaded_file.name}")
 
-    # Validate filename format
+    # Validate filename format (case-insensitive for .pdf/.PDF)
     import re
     pattern = r'^([^_]+)_([^_]+)_(\d{4}-\d{2}-\d{2})\.pdf$'
-    match = re.match(pattern, uploaded_file.name)
+    match = re.match(pattern, uploaded_file.name, re.IGNORECASE)
 
     if not match:
         st.error("""
