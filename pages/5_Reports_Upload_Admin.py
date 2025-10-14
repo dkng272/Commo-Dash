@@ -140,29 +140,6 @@ if uploaded_file is not None:
 
         st.divider()
 
-        # Processing options
-        st.subheader("Processing Options")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            model = st.selectbox(
-                "AI Model",
-                ["gpt-5-mini", "gpt-4o", "gpt-4o-mini"],
-                index=0,
-                help="Model to use for summarization"
-            )
-        with col2:
-            temperature = st.slider(
-                "Temperature",
-                min_value=0.0,
-                max_value=2.0,
-                value=1.0,
-                step=0.1,
-                help="Higher values = more creative, lower = more focused"
-            )
-
-        st.divider()
-
         # Process button
         if st.button("🚀 Process and Upload to MongoDB", type="primary"):
             with st.spinner("Processing PDF..."):
@@ -179,12 +156,10 @@ if uploaded_file is not None:
                     # Import processor
                     from pdf_processor_mongodb import process_pdf_to_mongodb
 
-                    # Process PDF (use new filename)
+                    # Process PDF (use new filename, default model and temperature)
                     result = process_pdf_to_mongodb(
                         tmp_path,
-                        filename=new_filename,
-                        model=model,
-                        temperature=temperature
+                        filename=new_filename
                     )
 
                     if result:
