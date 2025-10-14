@@ -247,9 +247,242 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Create tabs for Stock Spreads and Index Swings
-tab1, tab2 = st.tabs(["Stock Spreads", "Commodity Index Swings"])
+tab1, tab2 = st.tabs(["Commodity Swings", "Stock Spreads"])
 
 with tab1:
+    # Summary Table - Largest Swings
+
+    summary_data = []
+    for group in all_indexes.keys():
+        index_data = combined_df[group].dropna()
+
+        change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100 if len(index_data) >= 6 else 0
+        change_10d = ((index_data.iloc[-1] / index_data.iloc[-11]) - 1) * 100 if len(index_data) >= 11 else 0
+        change_50d = ((index_data.iloc[-1] / index_data.iloc[-51]) - 1) * 100 if len(index_data) >= 51 else 0
+        change_150d = ((index_data.iloc[-1] / index_data.iloc[-151]) - 1) * 100 if len(index_data) >= 151 else 0
+
+        summary_data.append({
+            'Group': group,
+            '5D Change (%)': round(change_5d, 2),
+            '10D Change (%)': round(change_10d, 2),
+            '50D Change (%)': round(change_50d, 2),
+            '150D Change (%)': round(change_150d, 2),
+            '5D Abs Swing': round(abs(change_5d), 2),
+            '10D Abs Swing': round(abs(change_10d), 2),
+            '50D Abs Swing': round(abs(change_50d), 2),
+            '150D Abs Swing': round(abs(change_150d), 2)
+        })
+
+    summary_df = pd.DataFrame(summary_data)
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    def color_negative_red(val):
+        color = 'red' if val < 0 else 'green' if val > 0 else 'black'
+        return f'color: {color}'
+
+    with col1:
+        st.write("**5D Swings**")
+        top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_5d[['Group', '5D Change (%)']].style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col2:
+        st.write("**10D Swings**")
+        top_10d = summary_df.sort_values('10D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_10d[['Group', '10D Change (%)']].style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col3:
+        st.write("**50D Swings**")
+        top_50d = summary_df.sort_values('50D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_50d[['Group', '50D Change (%)']].style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    with col4:
+        st.write("**150D Swings**")
+        top_150d = summary_df.sort_values('150D Abs Swing', ascending=False).head(5)
+        st.dataframe(
+            top_150d[['Group', '150D Change (%)']].style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
+            hide_index=True
+        )
+
+    # Quick Viewer for Commodity Index Swings
+    @st.fragment
+    def render_commodity_quick_viewer():
+        # Get top 5 groups by 50D absolute swing
+        available_groups = summary_df.nlargest(5, '50D Abs Swing')['Group'].tolist()
+
+        if available_groups:
+            # Dropdown selector
+            selected_group = st.selectbox(
+                "Select Commodity Group",
+                options=available_groups,
+                index=0,
+                help="Top 5 commodity groups by 50D swing",
+                key="commodity_group_selector"
+            )
+
+            st.divider()
+
+            # Get group metrics
+            group_metrics = summary_df[summary_df['Group'] == selected_group].iloc[0]
+
+            # Display key metrics with color coding
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+            def get_color(value):
+                return '#22c55e' if value > 0 else '#ef4444' if value < 0 else '#6b7280'
+
+            with metric_col1:
+                val = group_metrics['5D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">5D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with metric_col2:
+                val = group_metrics['10D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">10D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with metric_col3:
+                val = group_metrics['50D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">50D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with metric_col4:
+                val = group_metrics['150D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">150D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.divider()
+
+            # Create 2-column layout
+            chart_col1, chart_col2 = st.columns(2)
+
+            with chart_col1:
+                # Group Index Chart
+                st.markdown(f"**{selected_group} Index**")
+                fig_group = go.Figure()
+
+                # Get group index data
+                group_index = all_indexes[selected_group].copy()
+                group_index = group_index.sort_values('Date')
+
+                # Normalize to base 100
+                first_value = group_index['Index_Value'].iloc[0]
+                group_index['Normalized'] = (group_index['Index_Value'] / first_value) * 100
+
+                # Add moving averages
+                group_index['MA20'] = group_index['Normalized'].rolling(20, min_periods=1).mean()
+                group_index['MA50'] = group_index['Normalized'].rolling(50, min_periods=1).mean()
+
+                # Plot index
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['Normalized'],
+                    mode='lines',
+                    name='Index',
+                    line=dict(color='#667eea', width=2.5)
+                ))
+
+                # Plot MAs
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['MA20'],
+                    mode='lines',
+                    name='MA20',
+                    line=dict(color='#ffa500', width=1.5, dash='dash')
+                ))
+
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['MA50'],
+                    mode='lines',
+                    name='MA50',
+                    line=dict(color='#ff6b6b', width=1.5, dash='dot')
+                ))
+
+                fig_group.update_layout(
+                    xaxis_title='', yaxis_title='Index (Base=100)',
+                    hovermode='x unified', template='plotly_white', height=400,
+                    showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(l=10, r=10, t=30, b=30)
+                )
+
+                st.plotly_chart(fig_group, use_container_width=True, key="group_index_chart")
+
+            with chart_col2:
+                # Component Tickers Chart
+                st.markdown(f"**Component Tickers in {selected_group}**")
+                fig_components = go.Figure()
+
+                # Get all tickers in this group
+                group_tickers = df[df['Group'] == selected_group].copy()
+                tickers_list = group_tickers['Ticker'].unique()
+
+                # Color palette for tickers
+                colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a', '#fee140', '#30cfd0']
+
+                for idx, ticker in enumerate(tickers_list):
+                    ticker_data = group_tickers[group_tickers['Ticker'] == ticker].copy()
+                    ticker_data = ticker_data.sort_values('Date')
+
+                    if not ticker_data.empty:
+                        # Normalize to base 100
+                        first_price = ticker_data['Price'].iloc[0]
+                        ticker_data['Normalized'] = (ticker_data['Price'] / first_price) * 100
+
+                        fig_components.add_trace(go.Scatter(
+                            x=ticker_data['Date'],
+                            y=ticker_data['Normalized'],
+                            mode='lines',
+                            name=ticker,
+                            line=dict(color=colors[idx % len(colors)], width=2),
+                            opacity=0.7
+                        ))
+
+                fig_components.update_layout(
+                    xaxis_title='', yaxis_title='Index (Base=100)',
+                    hovermode='x unified', template='plotly_white', height=400,
+                    showlegend=True, legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+                    margin=dict(l=10, r=10, t=30, b=30)
+                )
+
+                st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
+
+        else:
+            st.info("No commodity groups available to display")
+
+    with st.expander("Quick Viewer", expanded=True):
+        render_commodity_quick_viewer()
+
+with tab2:
     # Toggle between best benefited and worst hit
     show_worst = st.checkbox('Show Worst Hit Stocks', value=False)
 
@@ -524,7 +757,7 @@ with tab1:
         else:
             st.info("No tickers available to display")
 
-    with st.expander("Quick Viewer", expanded=True):
+    with st.expander("Quick Viewer: View Top 5 in 50D", expanded=True):
         render_quick_viewer()
 
 with tab2:
