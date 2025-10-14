@@ -249,7 +249,8 @@ if len(available_items) > 0:
     st.dataframe(
         styled_df,
         use_container_width=True,
-        height=min(350, 40 + len(summary_df) * 30)
+        height=min(350, 40 + len(summary_df) * 30),
+        hide_index=True
     )
 
     # ============ CHART SECTION ============
