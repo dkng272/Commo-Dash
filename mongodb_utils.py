@@ -2,16 +2,32 @@
 MongoDB utility functions for Commodity Dashboard
 """
 from pymongo import MongoClient
-import streamlit as st
-import json
+import os
 from typing import List, Dict, Any
+
+# Try to import streamlit, but make it optional for local usage
+try:
+    import streamlit as st
+    HAS_STREAMLIT = True
+except ImportError:
+    HAS_STREAMLIT = False
 
 def get_mongo_client():
     """
-    Get MongoDB client with connection from Streamlit secrets
+    Get MongoDB client with connection from Streamlit secrets or environment variables
     """
-    # Get from Streamlit secrets (required)
-    mongo_uri = st.secrets["MONGODB_URI"]
+    # Try Streamlit secrets first, then fall back to environment variable
+    if HAS_STREAMLIT:
+        try:
+            mongo_uri = st.secrets["MONGODB_URI"]
+        except:
+            mongo_uri = os.getenv("MONGODB_URI")
+    else:
+        mongo_uri = os.getenv("MONGODB_URI")
+
+    if not mongo_uri:
+        raise ValueError("MONGODB_URI not found in secrets or environment variables")
+
     client = MongoClient(mongo_uri)
     return client
 
@@ -22,7 +38,6 @@ def get_database():
     client = get_mongo_client()
     return client["commodity_dashboard"]
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
 def load_ticker_mappings() -> List[Dict[str, Any]]:
     """
     Load ticker mappings from MongoDB
@@ -35,10 +50,18 @@ def load_ticker_mappings() -> List[Dict[str, Any]]:
     ticker_mappings = list(collection.find({}, {'_id': 0}))
 
     if not ticker_mappings:
-        st.error("⚠️ No ticker mappings found in MongoDB. Please run the migration script.")
+        msg = "⚠️ No ticker mappings found in MongoDB."
+        if HAS_STREAMLIT:
+            st.error(msg)
+        else:
+            print(msg)
         return []
 
     return ticker_mappings
+
+# Cache the function only if Streamlit is available
+if HAS_STREAMLIT:
+    load_ticker_mappings = st.cache_data(ttl=300)(load_ticker_mappings)
 
 def save_ticker_mappings(ticker_mappings: List[Dict[str, Any]]) -> bool:
     """
@@ -61,62 +84,21 @@ def save_ticker_mappings(ticker_mappings: List[Dict[str, Any]]) -> bool:
         if ticker_mappings:
             collection.insert_many(ticker_mappings)
 
-        # Clear the cache so new data is loaded
-        load_ticker_mappings.clear()
+        # Clear the cache so new data is loaded (only if using Streamlit)
+        if HAS_STREAMLIT and hasattr(load_ticker_mappings, 'clear'):
+            load_ticker_mappings.clear()
 
         return True
     except Exception as e:
-        st.error(f"Error saving to MongoDB: {e}")
-        return False
-
-def migrate_json_to_mongodb(json_file_path: str) -> bool:
-    """
-    Migrate ticker mappings from JSON file to MongoDB
-
-    Parameters:
-    - json_file_path: Path to the JSON file
-
-    Returns:
-    - bool: True if successful, False otherwise
-    """
-    try:
-        # Load from JSON
-        with open(json_file_path, 'r') as f:
-            ticker_mappings = json.load(f)
-
-        # Save to MongoDB
-        success = save_ticker_mappings(ticker_mappings)
-
-        if success:
-            print(f"✅ Successfully migrated {len(ticker_mappings)} ticker mappings to MongoDB")
+        msg = f"Error saving to MongoDB: {e}"
+        if HAS_STREAMLIT:
+            st.error(msg)
         else:
-            print("❌ Failed to migrate ticker mappings")
-
-        return success
-    except Exception as e:
-        print(f"❌ Error during migration: {e}")
-        return False
-
-def test_connection() -> bool:
-    """
-    Test MongoDB connection
-
-    Returns:
-    - bool: True if connection successful, False otherwise
-    """
-    try:
-        client = get_mongo_client()
-        # Ping the database
-        client.admin.command('ping')
-        print("✅ MongoDB connection successful")
-        return True
-    except Exception as e:
-        print(f"❌ MongoDB connection failed: {e}")
+            print(msg)
         return False
 
 # ==================== Reports Functions ====================
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
 def load_reports() -> List[Dict[str, Any]]:
     """
     Load all reports from MongoDB
@@ -129,10 +111,18 @@ def load_reports() -> List[Dict[str, Any]]:
     reports = list(collection.find({}, {'_id': 0}).sort("report_date", -1))
 
     if not reports:
-        st.error("⚠️ No reports found in MongoDB. Please run the migration script.")
+        msg = "⚠️ No reports found in MongoDB."
+        if HAS_STREAMLIT:
+            st.warning(msg)
+        else:
+            print(msg)
         return []
 
     return reports
+
+# Cache the function only if Streamlit is available
+if HAS_STREAMLIT:
+    load_reports = st.cache_data(ttl=300)(load_reports)
 
 def save_reports(reports: List[Dict[str, Any]]) -> bool:
     """
@@ -158,38 +148,15 @@ def save_reports(reports: List[Dict[str, Any]]) -> bool:
         # Create index on report_date for faster queries
         collection.create_index("report_date")
 
-        # Clear the cache so new data is loaded
-        load_reports.clear()
+        # Clear the cache so new data is loaded (only if using Streamlit)
+        if HAS_STREAMLIT and hasattr(load_reports, 'clear'):
+            load_reports.clear()
 
         return True
     except Exception as e:
-        st.error(f"Error saving reports to MongoDB: {e}")
-        return False
-
-def migrate_reports_to_mongodb(json_file_path: str) -> bool:
-    """
-    Migrate reports from JSON file to MongoDB
-
-    Parameters:
-    - json_file_path: Path to the all_reports.json file
-
-    Returns:
-    - bool: True if successful, False otherwise
-    """
-    try:
-        # Load from JSON
-        with open(json_file_path, 'r', encoding='utf-8') as f:
-            reports = json.load(f)
-
-        # Save to MongoDB
-        success = save_reports(reports)
-
-        if success:
-            print(f"✅ Successfully migrated {len(reports)} reports to MongoDB")
+        msg = f"Error saving reports to MongoDB: {e}"
+        if HAS_STREAMLIT:
+            st.error(msg)
         else:
-            print("❌ Failed to migrate reports")
-
-        return success
-    except Exception as e:
-        print(f"❌ Error during migration: {e}")
+            print(msg)
         return False

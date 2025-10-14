@@ -364,7 +364,7 @@ if ticker_data:
 
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
             <h3 style="color: white; margin: 0; font-size: 18px;">Summary Metrics</h3>
         </div>
     """, unsafe_allow_html=True)
@@ -381,7 +381,7 @@ if ticker_data:
     # Display inputs
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
             <h3 style="color: white; margin: 0; font-size: 18px;">Input Commodities (Costs)</h3>
         </div>
     """, unsafe_allow_html=True)
@@ -508,7 +508,7 @@ if ticker_data:
     # Display outputs
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                    padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
             <h3 style="color: white; margin: 0; font-size: 18px;">Output Commodities (Products)</h3>
         </div>
     """, unsafe_allow_html=True)
@@ -635,7 +635,7 @@ if ticker_data:
         st.divider()
         st.markdown("""
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                        padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
                 <h3 style="color: white; margin: 0; font-size: 18px;">Combined View: Inputs vs Outputs vs Stock Price</h3>
             </div>
         """, unsafe_allow_html=True)
@@ -884,7 +884,7 @@ if ticker_data:
         if stock_data is not None and not stock_data.empty and (price_correlations or return_correlations):
             st.markdown("""
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
                     <h3 style="color: white; margin: 0; font-size: 18px;">Correlation Analysis</h3>
                 </div>
             """, unsafe_allow_html=True)

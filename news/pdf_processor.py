@@ -1,6 +1,6 @@
 #%% [markdown]
-# # PDF Report Processor - Enhanced Version
-# Processes PDF reports and writes directly to all_reports.json
+# # PDF Report Processor - MongoDB Version
+# Processes PDF reports and saves directly to MongoDB
 # Supports series-based prompt routing and metadata tracking
 
 #%% Imports and Configuration
@@ -12,25 +12,30 @@ import fitz  # PyMuPDF
 from openai import OpenAI
 import pandas as pd
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import prompt system
 from prompts import get_prompt_for_series, get_commodity_prompt, get_sector_prompt
 from prompts.prompt_router import get_max_pages_for_prompt
+
+# Add parent directory to path for mongodb_utils import
+parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, parent_dir)
 
 # Default settings
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_TEMPERATURE = 1.0
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Paths
-ALL_REPORTS_JSON = "all_reports.json"
-
 
 #%% Helper Functions
 def load_commodity_groups():
     """Load unique commodity groups from commo_list.xlsx"""
     try:
-        commo_file = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'commo_list.xlsx')
+        commo_file = os.path.join(parent_dir, 'commo_list.xlsx')
         df = pd.read_excel(commo_file)
         groups = df['Group'].dropna().unique().tolist()
         return groups
@@ -41,7 +46,7 @@ def load_commodity_groups():
             "Urea", "NPK", "DAP", "Caustic Soda", "Yellow P4", "P4 Rock",
             "PVC", "Aluminum", "Tungsten", "Long Steel", "HRC", "Iron Ore",
             "Met Coal", "Scrap", "Bulk Shipping", "Liquids Shipping",
-            "Container Shipping", "Barley", "Milk ", "Grain", "Sugar", "Hog", "Pangaseus"
+            "Container Shipping", "Barley", "Milk", "Grain", "Sugar", "Hog", "Pangaseus"
         ]
 
 
@@ -198,69 +203,58 @@ def summarize_with_chatgpt(markdown_content, prompt_type, api_key=None, model=No
         return None
 
 
-#%% All Reports Management
-def load_all_reports():
-    """Load existing all_reports.json or create empty list"""
-    if os.path.exists(ALL_REPORTS_JSON):
-        try:
-            with open(ALL_REPORTS_JSON, 'r', encoding='utf-8') as f:
-                reports = json.load(f)
-            print(f"📋 Loaded {len(reports)} existing reports from {ALL_REPORTS_JSON}")
-            return reports
-        except Exception as e:
-            print(f"⚠ Error loading {ALL_REPORTS_JSON}: {e}")
-            return []
-    else:
-        print(f"📋 Creating new {ALL_REPORTS_JSON}")
-        return []
-
-
-def save_all_reports(reports):
-    """Save reports to all_reports.json sorted by date (newest first)"""
-    # Sort by date (newest first)
-    reports_sorted = sorted(reports, key=lambda x: x.get('report_date', ''), reverse=True)
-
-    try:
-        with open(ALL_REPORTS_JSON, 'w', encoding='utf-8') as f:
-            json.dump(reports_sorted, f, indent=2, ensure_ascii=False)
-        print(f"✓ Saved {len(reports_sorted)} reports to {ALL_REPORTS_JSON}")
-        return True
-    except Exception as e:
-        print(f"✗ Error saving to {ALL_REPORTS_JSON}: {e}")
-        return False
-
-
-def add_report_to_all_reports(report_data):
+#%% MongoDB Reports Management
+def save_report_to_mongodb(report_data):
     """
-    Add or update a report in all_reports.json
+    Save report to MongoDB
 
     Args:
         report_data: Dict with report metadata and commodity_news
+
+    Returns:
+        bool: Success status
     """
-    reports = load_all_reports()
+    try:
+        from mongodb_utils import load_reports, save_reports
 
-    # Check if report already exists (by filename)
-    existing_idx = None
-    for i, report in enumerate(reports):
-        if report.get('report_file') == report_data['report_file']:
-            existing_idx = i
-            break
+        # Load existing reports
+        reports = load_reports()
+        if reports is None:
+            reports = []
 
-    if existing_idx is not None:
-        print(f"📝 Updating existing report: {report_data['report_file']}")
-        reports[existing_idx] = report_data
-    else:
-        print(f"📝 Adding new report: {report_data['report_file']}")
-        reports.append(report_data)
+        # Check if report already exists (by filename)
+        existing_idx = None
+        for i, report in enumerate(reports):
+            if report.get('report_file') == report_data['report_file']:
+                existing_idx = i
+                break
 
-    # Save to file
-    save_all_reports(reports)
+        if existing_idx is not None:
+            print(f"📝 Updating existing report: {report_data['report_file']}")
+            reports[existing_idx] = report_data
+        else:
+            print(f"📝 Adding new report: {report_data['report_file']}")
+            reports.append(report_data)
+
+        # Save to MongoDB
+        success = save_reports(reports)
+
+        if success:
+            print(f"✓ Report saved to MongoDB")
+        else:
+            print(f"✗ Failed to save report to MongoDB")
+
+        return success
+
+    except Exception as e:
+        print(f"✗ Error saving to MongoDB: {e}")
+        return False
 
 
 #%% Main Processing Function
 def process_pdf(pdf_path, api_key=None, model=None):
     """
-    Complete workflow: Parse metadata → Extract → Summarize → Save to all_reports.json
+    Complete workflow: Parse metadata → Extract → Summarize → Save to MongoDB
 
     Args:
         pdf_path: Path to PDF file
@@ -268,10 +262,10 @@ def process_pdf(pdf_path, api_key=None, model=None):
         model: ChatGPT model to use
 
     Returns:
-        dict: Report data that was added to all_reports.json
+        dict: Report data that was added to MongoDB
     """
     print("=" * 70)
-    print("PDF Report Processor")
+    print("PDF Report Processor (MongoDB)")
     print("=" * 70)
     print()
 
@@ -330,14 +324,18 @@ def process_pdf(pdf_path, api_key=None, model=None):
         "commodity_news": summary
     }
 
-    # Add to all_reports.json
+    # Save to MongoDB
     print()
-    add_report_to_all_reports(report_data)
+    success = save_report_to_mongodb(report_data)
+
+    if not success:
+        print("✗ Failed to save to MongoDB")
+        return None
 
     print("\n" + "=" * 70)
     print("✓ COMPLETED SUCCESSFULLY")
     print("=" * 70)
-    print(f"\n📊 Report added to {ALL_REPORTS_JSON}")
+    print(f"\n📊 Report saved to MongoDB")
 
     return report_data
 

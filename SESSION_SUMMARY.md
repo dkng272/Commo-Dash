@@ -311,32 +311,54 @@ __pycache__/
 
 ## Recent Updates Summary
 
-### MongoDB Integration (Current Session)
+### Dashboard Quick Viewer Features (Latest Session)
+- ✅ **Quick Viewer for Commodity Swings**: View top 5 movers with 2-chart layout (Group Index + Component Tickers)
+- ✅ **Quick Viewer for Stock Spreads**: View top 5 movers with 4-chart grid (Input/Output/Stock/Spread)
+- ✅ **Group-Specific News**: Each commodity quick viewer shows news for selected group
+- ✅ **Dropdown Navigation**: Type or select from top 5 movers, no page reloads
+- ✅ **Spread Logic Fix**: Missing input/output data treated as flat line at 100
+- ✅ **Tab Reordering**: Commodity Swings first (default landing), Stock Spreads second
+- ✅ **Collapsible General News**: Latest Market News collapsed by default
+
+### Performance Optimization
+- ✅ **@st.fragment Decorator**: Quick viewers use fragments for isolated reruns
+- ✅ **No Full Page Reloads**: Switching tickers only reloads quick viewer section
+- ✅ **Removed st.expander**: Quick viewers displayed normally for smooth scrolling
+- ✅ **Removed Buttons**: Dropdown-only navigation (buttons were causing slow reruns)
+
+### Color-Coded Metrics
+- ✅ **Dashboard Metrics**: 5D/10D/50D/150D changes colored (green/red/gray)
+- ✅ **Group Analysis Metrics**: Main and regional metrics color-coded
+- ✅ **Consistent Styling**: HTML-based colored boxes with borders
+
+### MongoDB Integration - Reports (Latest Session)
+- ✅ **Reports Collection**: Added `reports` collection to MongoDB
+- ✅ **Reports Upload Admin**: Web interface to upload PDFs and save to MongoDB
+- ✅ **Error Logging**: Enhanced with captured stdout/stderr for debugging
+- ✅ **pdf_processor.py**: Updated to save to MongoDB (local batch processing)
+- ✅ **pdf_processor_mongodb.py**: Streamlit version for web uploads
+- ✅ **Dual Processing**: Both local and web uploads save to same MongoDB collection
+
+### Local Development Setup (Latest Session)
+- ✅ **mongodb_utils.py**: Works for both Streamlit Cloud and local Python scripts
+- ✅ **Environment Variable Support**: Reads `MONGODB_URI` from `.env` file
+- ✅ **python-dotenv Integration**: pdf_processor.py loads .env automatically
+- ✅ **Conditional Caching**: Only caches in Streamlit, not in local scripts
+- ✅ **Optional Streamlit**: mongodb_utils works without Streamlit installed
+
+### Code Cleanup & Organization
+- ✅ **Removed Migration Functions**: Cleaned up one-time migration code
+- ✅ **Removed Unused Imports**: json, datetime, create_weighted_index
+- ✅ **Removed Emojis**: Cleaner headers throughout
+- ✅ **Gradient Headers**: Consistent purple gradient on all section headers
+- ✅ **Duplicate Code Removal**: Fixed duplicate commodity swing tables
+
+### MongoDB Integration - Ticker Mappings (Previous Session)
 - ✅ Created `mongodb_utils.py` for database operations
 - ✅ Migrated 57 ticker mappings to MongoDB
 - ✅ Updated all pages to use MongoDB
 - ✅ Admin page now works on cloud deployment
 - ✅ Real-time updates without git commits
-
-### UI/UX Modernization
-- ✅ Gradient section headers
-- ✅ Tabbed interface for Market Movers
-- ✅ Enhanced news cards with badges
-- ✅ Last updated timestamp
-- ✅ Removed emojis for cleaner look
-- ✅ Consistent purple gradient theme
-
-### News System Enhancement
-- ✅ Multi-source support (JPM, HSBC, etc.)
-- ✅ Hierarchical filtering (Source → Series)
-- ✅ HTML rendering fixes
-- ✅ Scrollable containers for long content
-
-### Group Analysis Improvements
-- ✅ Index vs Components view toggle
-- ✅ Component ticker multiselect
-- ✅ Moved tickers to captions
-- ✅ Removed unnecessary headers
 
 ---
 
