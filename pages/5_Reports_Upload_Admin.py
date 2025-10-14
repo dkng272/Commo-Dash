@@ -156,11 +156,23 @@ if uploaded_file is not None:
                     # Import processor
                     from pdf_processor_mongodb import process_pdf_to_mongodb
 
+                    # Capture console output
+                    import io
+                    from contextlib import redirect_stdout, redirect_stderr
+
+                    stdout_capture = io.StringIO()
+                    stderr_capture = io.StringIO()
+
                     # Process PDF (use new filename, default model and temperature)
-                    result = process_pdf_to_mongodb(
-                        tmp_path,
-                        filename=new_filename
-                    )
+                    with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
+                        result = process_pdf_to_mongodb(
+                            tmp_path,
+                            filename=new_filename
+                        )
+
+                    # Get captured output
+                    stdout_text = stdout_capture.getvalue()
+                    stderr_text = stderr_capture.getvalue()
 
                     if result:
                         st.success("✅ Report processed and uploaded successfully!")
@@ -178,13 +190,29 @@ if uploaded_file is not None:
                                     st.markdown(f"**{commodity}**")
                                     st.markdown(news)
                                     st.markdown("---")
+
+                        # Show processing logs
+                        if stdout_text:
+                            with st.expander("Processing Logs"):
+                                st.text(stdout_text)
                     else:
                         st.error("❌ Failed to process report. Check the logs for details.")
+
+                        # Show captured logs
+                        with st.expander("Processing Logs", expanded=True):
+                            if stdout_text:
+                                st.text("**Standard Output:**")
+                                st.code(stdout_text)
+                            if stderr_text:
+                                st.text("**Error Output:**")
+                                st.code(stderr_text)
+                            if not stdout_text and not stderr_text:
+                                st.info("No logs captured. The process may have failed silently.")
 
                 except Exception as e:
                     st.error(f"❌ Error processing report: {e}")
                     import traceback
-                    with st.expander("Error Details"):
+                    with st.expander("Error Details", expanded=True):
                         st.code(traceback.format_exc())
 
                 finally:
