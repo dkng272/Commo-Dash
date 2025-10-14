@@ -97,17 +97,42 @@ selected_group = st.sidebar.selectbox(
 # Page Title with selected group
 st.title(f'{selected_group}')
 index_data = combined_df[selected_group].dropna()
+
+# Helper function for color coding
+def get_color(value):
+    return '#22c55e' if value > 0 else '#ef4444' if value < 0 else '#6b7280'
+
 col1, col2, col3 = st.columns(3)
 
 with col1:
     change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100 if len(index_data) >= 6 else 0
-    st.metric('5D Change', f'{change_5d:.2f}%', delta=f'{change_5d:.2f}%')
+    color = get_color(change_5d)
+    st.markdown(f"""
+        <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="color: #6b7280; font-size: 13px; font-weight: 500;">5D Change</div>
+            <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{change_5d:.2f}%</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 with col2:
     change_10d = ((index_data.iloc[-1] / index_data.iloc[-11]) - 1) * 100 if len(index_data) >= 11 else 0
-    st.metric('10D Change', f'{change_10d:.2f}%', delta=f'{change_10d:.2f}%')
+    color = get_color(change_10d)
+    st.markdown(f"""
+        <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="color: #6b7280; font-size: 13px; font-weight: 500;">10D Change</div>
+            <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{change_10d:.2f}%</div>
+        </div>
+    """, unsafe_allow_html=True)
+
 with col3:
     change_50d = ((index_data.iloc[-1] / index_data.iloc[-51]) - 1) * 100 if len(index_data) >= 51 else 0
-    st.metric('50D Change', f'{change_50d:.2f}%', delta=f'{change_50d:.2f}%')
+    color = get_color(change_50d)
+    st.markdown(f"""
+        <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+            <div style="color: #6b7280; font-size: 13px; font-weight: 500;">50D Change</div>
+            <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{change_50d:.2f}%</div>
+        </div>
+    """, unsafe_allow_html=True)
 
 # View selection: Index or Components
 view_mode = st.radio(
@@ -245,10 +270,30 @@ if len(regional_keys) > 0:
 
             with col1r:
                 change_5d_r = ((regional_data.iloc[-1] / regional_data.iloc[-6]) - 1) * 100 if len(regional_data) >= 6 else 0
-                st.metric('5D Change', f'{change_5d_r:.2f}%', delta=f'{change_5d_r:.2f}%')
+                color = get_color(change_5d_r)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">5D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{change_5d_r:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             with col2r:
                 change_10d_r = ((regional_data.iloc[-1] / regional_data.iloc[-11]) - 1) * 100 if len(regional_data) >= 11 else 0
-                st.metric('10D Change', f'{change_10d_r:.2f}%', delta=f'{change_10d_r:.2f}%')
+                color = get_color(change_10d_r)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">10D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{change_10d_r:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             with col3r:
                 change_50d_r = ((regional_data.iloc[-1] / regional_data.iloc[-51]) - 1) * 100 if len(regional_data) >= 51 else 0
-                st.metric('50D Change', f'{change_50d_r:.2f}%', delta=f'{change_50d_r:.2f}%')
+                color = get_color(change_50d_r)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">50D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{change_50d_r:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)

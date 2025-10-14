@@ -612,16 +612,51 @@ with tab2:
             # Get group metrics
             group_metrics = summary_df[summary_df['Group'] == selected_group].iloc[0]
 
-            # Display key metrics
+            # Display key metrics with color coding
             metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+            def get_color(value):
+                return '#22c55e' if value > 0 else '#ef4444' if value < 0 else '#6b7280'
+
             with metric_col1:
-                st.metric("5D Change", f"{group_metrics['5D Change (%)']:.2f}%")
+                val = group_metrics['5D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">5D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             with metric_col2:
-                st.metric("10D Change", f"{group_metrics['10D Change (%)']:.2f}%")
+                val = group_metrics['10D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">10D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             with metric_col3:
-                st.metric("50D Change", f"{group_metrics['50D Change (%)']:.2f}%")
+                val = group_metrics['50D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">50D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
+
             with metric_col4:
-                st.metric("150D Change", f"{group_metrics['150D Change (%)']:.2f}%")
+                val = group_metrics['150D Change (%)']
+                color = get_color(val)
+                st.markdown(f"""
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 13px; font-weight: 500;">150D Change</div>
+                        <div style="color: {color}; font-size: 24px; font-weight: 600; margin-top: 5px;">{val:.2f}%</div>
+                    </div>
+                """, unsafe_allow_html=True)
 
             st.divider()
 
