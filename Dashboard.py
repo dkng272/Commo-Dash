@@ -240,9 +240,6 @@ st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
         <h3 style="color: white; margin: 0; font-size: 18px;">Market Movers</h3>
-        <p style="color: rgba(255,255,255,0.9); margin: 4px 0 0 0; font-size: 13px;">
-            Track stocks with the largest input-output spreads
-        </p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -510,7 +507,12 @@ with tab1:
             st.info("No commodity groups available to display")
 
     st.divider()
-    st.markdown("### Quick Viewer: Top 5 Movers (50D)")
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers (50D)</h3>
+        </div>
+    """, unsafe_allow_html=True)
     render_commodity_quick_viewer()
 
 with tab2:
@@ -789,7 +791,12 @@ with tab2:
             st.info("No tickers available to display")
 
     st.divider()
-    st.markdown("### Quick Viewer: Top 5 Movers (50D)")
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers (50D)</h3>
+        </div>
+    """, unsafe_allow_html=True)
     render_quick_viewer()
 
 st.divider()
