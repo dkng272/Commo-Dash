@@ -307,9 +307,8 @@ with tab1:
         )
 
     # Quick Chart Viewer inside Stock Spreads tab
-    st.divider()
-
-    with st.expander("Quick Viewer", expanded=False):
+    @st.fragment
+    def render_quick_viewer():
         # Get top 5 tickers based on current selection
         available_tickers = spreads_df.nlargest(5, 'Spread_50D')['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, 'Spread_50D')['Ticker'].tolist()
 
@@ -520,14 +519,13 @@ with tab1:
                         showlegend=False, margin=dict(l=10, r=10, t=10, b=30)
                     )
                     st.plotly_chart(fig_spread, use_container_width=True, key="spread_chart")
-
-                # Link to full analysis
-                st.divider()
-                st.markdown(f"[🔍 View Full Analysis for {selected_chart_ticker}](Ticker_Analysis?ticker={selected_chart_ticker})")
             else:
                 st.warning(f"No commodity mapping found for {selected_chart_ticker}")
         else:
             st.info("No tickers available to display")
+
+    with st.expander("Quick Viewer", expanded=True):
+        render_quick_viewer()
 
 with tab2:
     # Summary Table - Largest Swings

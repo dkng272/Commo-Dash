@@ -104,4 +104,4 @@ ticker_status_df = pd.DataFrame({
 
 ticker_status_df['Is_Classified'] = ticker_status_df['Is_Classified'].astype(int)  # Convert boolean to string for better readability
 
-# ticker_status_df.to_csv('ticker_status.csv', index=False)
+ticker_status_df.to_csv('ticker_status.csv', index=False)
