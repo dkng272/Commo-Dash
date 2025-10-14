@@ -136,48 +136,35 @@ if selected_region != 'All':
 # Get available items
 available_items = sorted(filtered_df['Item'].dropna().unique().tolist())
 
-# Quick select checkbox
-select_all = st.sidebar.checkbox("Select All Items", value=False)
-
 st.sidebar.divider()
 
 # ============ ITEM SELECTION IN SIDEBAR ============
-# Initialize session state for selected items if not exists
-if 'selected_items' not in st.session_state:
-    st.session_state.selected_items = []
-
-# Handle "Select All Items" checkbox from sidebar
-if select_all and len(available_items) > 0:
-    default_items = available_items
-else:
-    default_items = st.session_state.selected_items if 'selected_items' in st.session_state else []
-
-# Filter default items to only include available items
-default_items = [item for item in default_items if item in available_items]
-
-selected_items = st.sidebar.multiselect(
-    "Items",
-    options=available_items,
-    default=default_items,
-    help="Select one or more items to view their price movements",
-    key='item_multiselect'
-)
-
-# Update session state
-st.session_state.selected_items = selected_items
+# Initialize session state for selected items
+if 'selected_items_chart' not in st.session_state:
+    st.session_state.selected_items_chart = []
 
 # Quick action buttons
 col_btn1, col_btn2 = st.sidebar.columns(2)
 with col_btn1:
     if st.button("Select All", use_container_width=True):
-        if len(available_items) > 0:
-            st.session_state.selected_items = available_items
-            st.rerun()
+        st.session_state.selected_items_chart = available_items.copy()
 
 with col_btn2:
     if st.button("Clear", use_container_width=True):
-        st.session_state.selected_items = []
-        st.rerun()
+        st.session_state.selected_items_chart = []
+
+# Filter to only include available items
+default_items = [item for item in st.session_state.selected_items_chart if item in available_items]
+
+selected_items = st.sidebar.multiselect(
+    "Items",
+    options=available_items,
+    default=default_items,
+    help="Select one or more items to view their price movements"
+)
+
+# Update session state with current selection
+st.session_state.selected_items_chart = selected_items
 
 st.sidebar.divider()
 st.sidebar.caption(f"📊 {len(available_items)} items available")
