@@ -95,13 +95,16 @@ try:
             # Display report metadata
             st.divider()
 
-            col1, col2, col3 = st.columns([2, 1, 1])
+            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
             with col1:
                 st.subheader(f"📄 {selected_report.get('report_source', 'Unknown')} - {selected_report.get('report_series', 'Unknown')}")
             with col2:
-                st.caption(f"Date: {selected_report.get('report_date', 'Unknown')}")
+                st.caption(f"Report Date: {selected_report.get('report_date', 'Unknown')}")
             with col3:
                 st.caption(f"Type: {selected_report.get('report_type', 'Unknown')}")
+            with col4:
+                upload_date = selected_report.get('date_uploaded', 'N/A')
+                st.caption(f"Uploaded: {upload_date}")
 
             st.divider()
 

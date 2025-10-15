@@ -175,10 +175,32 @@ if uploaded_file is not None:
                     stderr_text = stderr_capture.getvalue()
 
                     if result:
+                        # Add upload timestamp to the result
+                        from datetime import datetime
+                        result['date_uploaded'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                        # Update the report in MongoDB with upload timestamp
+                        from mongodb_utils import load_reports, save_reports
+                        reports = load_reports()
+
+                        # Find and update the report
+                        for i, report in enumerate(reports):
+                            if report.get('report_file') == new_filename:
+                                reports[i]['date_uploaded'] = result['date_uploaded']
+                                break
+
+                        save_reports(reports)
+
                         st.success("✅ Report processed and uploaded successfully!")
 
                         # Show summary
                         st.subheader("Report Summary")
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Report Date", result.get('report_date'))
+                        with col2:
+                            st.metric("Upload Date", result.get('date_uploaded'))
                         commodity_news = result.get('commodity_news', {})
                         non_empty = {k: v for k, v in commodity_news.items() if v and v.strip()}
 
