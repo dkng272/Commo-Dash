@@ -146,10 +146,13 @@ def fetch_ticker_reference(schema: Optional[str] = "dbo") -> pd.DataFrame:
         return _fetch_ticker_reference_impl(schema)
 
 
-@st.cache_data(ttl=3600) if st is not None else lambda f: f
 def _cached_fetch_ticker_reference(schema: Optional[str] = "dbo") -> pd.DataFrame:
     """Cached version for Streamlit (1 hour TTL)."""
     return _fetch_ticker_reference_impl(schema)
+
+# Apply caching decorator if Streamlit is available
+if st is not None:
+    _cached_fetch_ticker_reference = st.cache_data(ttl=3600)(_cached_fetch_ticker_reference)
 
 
 def _fetch_ticker_reference_impl(schema: Optional[str] = "dbo") -> pd.DataFrame:
@@ -239,7 +242,6 @@ def fetch_all_commodity_data(
         return _fetch_all_commodity_data_impl(exclude_sectors, start_date, schema, parallel, max_workers)
 
 
-@st.cache_data(ttl=3600) if st is not None else lambda f: f
 def _cached_fetch_all_commodity_data(
     exclude_sectors: Optional[tuple] = None,
     start_date: Optional[str] = None,
@@ -251,6 +253,10 @@ def _cached_fetch_all_commodity_data(
     # Convert tuple back to list for implementation
     exclude_list = list(exclude_sectors) if exclude_sectors else None
     return _fetch_all_commodity_data_impl(exclude_list, start_date, schema, parallel, max_workers)
+
+# Apply caching decorator if Streamlit is available
+if st is not None:
+    _cached_fetch_all_commodity_data = st.cache_data(ttl=3600)(_cached_fetch_all_commodity_data)
 
 
 def _fetch_all_commodity_data_impl(
