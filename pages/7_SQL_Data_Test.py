@@ -100,29 +100,51 @@ if st.button("Load All Data", type="primary"):
             # Success metrics
             st.success(f"✓ Loaded {len(df):,} records in {elapsed:.2f}s")
 
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric("Rows", f"{len(df):,}")
             with col2:
                 st.metric("Unique Tickers", df['Ticker'].nunique())
             with col3:
-                st.metric("Sectors", df['Sector'].nunique())
-            with col4:
                 data_size_mb = df.memory_usage(deep=True).sum() / 1024**2
                 st.metric("Memory", f"{data_size_mb:.2f} MB")
 
             # Date range
             st.markdown(f"**Date Range:** {df['Date'].min()} to {df['Date'].max()}")
 
-            # Sector breakdown
-            st.subheader("Data by Sector")
-            sector_summary = df.groupby('Sector').agg({
-                'Ticker': 'nunique',
-                'Date': ['min', 'max'],
-                'Price': 'count'
-            }).round(2)
-            sector_summary.columns = ['Unique Tickers', 'First Date', 'Last Date', 'Total Records']
-            st.dataframe(sector_summary, use_container_width=True)
+            # Columns available
+            st.markdown(f"**Columns:** {', '.join(df.columns)}")
+
+            st.info("Note: Sector column not included in raw SQL data. Use classification_loader to add Sector/Group/Region.")
+
+            # Export option
+            st.subheader("Export Data")
+
+            # Create CSV export
+            csv_data = df.to_csv(index=False)
+
+            col_exp1, col_exp2 = st.columns(2)
+            with col_exp1:
+                st.download_button(
+                    label="📥 Download Full Data (CSV)",
+                    data=csv_data,
+                    file_name="sql_commodity_data_full.csv",
+                    mime="text/csv",
+                    help=f"Download all {len(df):,} rows"
+                )
+
+            with col_exp2:
+                # Also create a unique Names export for comparison
+                if 'Name' in df.columns:
+                    unique_names = df[['Ticker', 'Name']].drop_duplicates().sort_values('Name')
+                    csv_names = unique_names.to_csv(index=False)
+                    st.download_button(
+                        label="📋 Download Unique Names (CSV)",
+                        data=csv_names,
+                        file_name="sql_unique_names.csv",
+                        mime="text/csv",
+                        help=f"Download {len(unique_names)} unique ticker names"
+                    )
 
             # Sample data
             st.subheader("Sample Data (First 50 rows)")

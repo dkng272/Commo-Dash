@@ -25,17 +25,28 @@ st.title("📊 Commodity Viewer")
 @st.cache_data(ttl=3600)
 def load_data():
     """Load commodity price data from SQL Server with classification (cached 1 hour)."""
-    df = load_sql_data_with_classification(start_date='2024-01-01')
+    df_raw = load_sql_data_with_classification(start_date='2024-01-01')
+
+    # Debug: Show before filtering
+    total_raw = len(df_raw)
+    unique_raw = df_raw['Name'].nunique() if 'Name' in df_raw.columns else df_raw['Ticker'].nunique()
+
     # Filter out items without classification (internal calculated fields)
-    df = df.dropna(subset=['Group', 'Region', 'Sector'])
+    df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
+
+    # Debug: Show after filtering
+    total_filtered = len(df)
+    unique_filtered = df['Name'].nunique() if 'Name' in df.columns else df['Ticker'].nunique()
+    filtered_out = unique_raw - unique_filtered
 
     # Debug info
     st.sidebar.info(f"""
-    **Data loaded:**
-    - Total rows: {len(df):,}
-    - Unique tickers: {df['Ticker'].nunique()}
-    - Unique sectors: {df['Sector'].nunique()}
-    - Sectors: {', '.join(sorted(df['Sector'].unique()))}
+    **Data loaded from SQL:**
+    - Raw: {total_raw:,} rows, {unique_raw} tickers
+    - After classification: {total_filtered:,} rows, {unique_filtered} tickers
+    - Filtered out: {filtered_out} tickers (not in commo_list.xlsx)
+
+    **Sectors found:** {', '.join(sorted(df['Sector'].unique()))}
     """)
 
     return df
