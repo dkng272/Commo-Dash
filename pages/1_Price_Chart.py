@@ -28,6 +28,16 @@ def load_data():
     df = load_sql_data_with_classification(start_date='2024-01-01')
     # Filter out items without classification (internal calculated fields)
     df = df.dropna(subset=['Group', 'Region', 'Sector'])
+
+    # Debug info
+    st.sidebar.info(f"""
+    **Data loaded:**
+    - Total rows: {len(df):,}
+    - Unique tickers: {df['Ticker'].nunique()}
+    - Unique sectors: {df['Sector'].nunique()}
+    - Sectors: {', '.join(sorted(df['Sector'].unique()))}
+    """)
+
     return df
 
 @st.cache_data(ttl=3600)

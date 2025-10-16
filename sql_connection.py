@@ -283,6 +283,7 @@ def _fetch_all_commodity_data_impl(
 
     # Load data from each sector table
     full_data = []
+    failed_sectors = []
 
     if parallel:
         # Parallel loading (faster - ~10-15s instead of 30s)
@@ -303,6 +304,7 @@ def _fetch_all_commodity_data_impl(
                     full_data.append(df)
                 elif error:
                     sector_name, error_msg = error
+                    failed_sectors.append((sector_name, error_msg))
                     print(f"Warning: Could not load sector '{sector_name}': {error_msg}")
     else:
         # Sequential loading (original approach)
@@ -312,8 +314,14 @@ def _fetch_all_commodity_data_impl(
                 df['Sector'] = sector_name
                 full_data.append(df)
             except Exception as e:
+                failed_sectors.append((sector_name, str(e)))
                 print(f"Warning: Could not load sector '{sector_name}': {e}")
                 continue
+
+    # Log summary
+    print(f"Loaded {len(full_data)} sectors successfully")
+    if failed_sectors:
+        print(f"Failed to load {len(failed_sectors)} sectors: {[s[0] for s in failed_sectors]}")
 
     # Concatenate all data
     if not full_data:
