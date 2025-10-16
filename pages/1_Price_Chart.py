@@ -29,24 +29,29 @@ def load_data():
 
     # Debug: Show before filtering
     total_raw = len(df_raw)
-    unique_raw = df_raw['Name'].nunique() if 'Name' in df_raw.columns else df_raw['Ticker'].nunique()
+    has_name_col = 'Name' in df_raw.columns
+    unique_raw = df_raw['Name'].nunique() if has_name_col else df_raw['Ticker'].nunique()
 
     # Filter out items without classification (internal calculated fields)
     df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
 
     # Debug: Show after filtering
     total_filtered = len(df)
-    unique_filtered = df['Name'].nunique() if 'Name' in df.columns else df['Ticker'].nunique()
+    unique_filtered = df['Name'].nunique() if has_name_col else df['Ticker'].nunique()
     filtered_out = unique_raw - unique_filtered
 
     # Debug info
+    col_label = "Names" if has_name_col else "Tickers"
     st.sidebar.info(f"""
     **Data loaded from SQL:**
-    - Raw: {total_raw:,} rows, {unique_raw} tickers
-    - After classification: {total_filtered:,} rows, {unique_filtered} tickers
-    - Filtered out: {filtered_out} tickers (not in commo_list.xlsx)
+    - Start date filter: 2024-01-01
+    - Columns: {', '.join(df_raw.columns)}
+    - Raw: {total_raw:,} rows, {unique_raw} {col_label}
+    - After classification: {total_filtered:,} rows, {unique_filtered} {col_label}
+    - Filtered out: {filtered_out} {col_label} (not in commo_list.xlsx)
 
     **Sectors found:** {', '.join(sorted(df['Sector'].unique()))}
+    **Note:** If numbers seem wrong, clear cache!
     """)
 
     return df
