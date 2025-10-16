@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from commo_dashboard import create_equal_weight_index, create_regional_indexes, create_sector_indexes, load_latest_news
-from classification_loader import load_data_with_classification
+from classification_loader import load_sql_data_with_classification
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
 
@@ -20,9 +20,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load data with dynamic classification
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
-    df = load_data_with_classification('data/cleaned_data.csv')
+    """Load commodity price data from SQL Server with classification (cached 1 hour)."""
+    df_raw = load_sql_data_with_classification(start_date='2024-01-01')
+    # Filter out items without classification (internal calculated fields)
+    df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
     return df
 
 @st.cache_data
@@ -99,7 +102,8 @@ def build_indexes(df):
 def get_index_data(item, group, region, df, all_indexes, regional_indexes):
     """Get price data for an item with fallback to regional/group index"""
     if item and item.strip():
-        item_data = df[df['Ticker'] == item].copy()
+        # Use Name column for commodity series (matches MongoDB mappings and commo_list Item)
+        item_data = df[df['Name'] == item].copy()
         if not item_data.empty:
             return item_data[['Date', 'Price']].sort_values('Date')
 
@@ -436,30 +440,30 @@ with tab1:
 
             with chart_col2:
                 # Component Tickers Chart
-                st.markdown(f"**Component Tickers in {selected_group}**")
+                st.markdown(f"**Component Items in {selected_group}**")
                 fig_components = go.Figure()
 
-                # Get all tickers in this group
-                group_tickers = df[df['Group'] == selected_group].copy()
-                tickers_list = group_tickers['Ticker'].unique()
+                # Get all commodity names in this group
+                group_data = df[df['Group'] == selected_group].copy()
+                names_list = group_data['Name'].unique()
 
-                # Color palette for tickers
+                # Color palette for components
                 colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a', '#fee140', '#30cfd0']
 
-                for idx, ticker in enumerate(tickers_list):
-                    ticker_data = group_tickers[group_tickers['Ticker'] == ticker].copy()
-                    ticker_data = ticker_data.sort_values('Date')
+                for idx, name in enumerate(names_list):
+                    item_data = group_data[group_data['Name'] == name].copy()
+                    item_data = item_data.sort_values('Date')
 
-                    if not ticker_data.empty:
+                    if not item_data.empty:
                         # Normalize to base 100
-                        first_price = ticker_data['Price'].iloc[0]
-                        ticker_data['Normalized'] = (ticker_data['Price'] / first_price) * 100
+                        first_price = item_data['Price'].iloc[0]
+                        item_data['Normalized'] = (item_data['Price'] / first_price) * 100
 
                         fig_components.add_trace(go.Scatter(
-                            x=ticker_data['Date'],
-                            y=ticker_data['Normalized'],
+                            x=item_data['Date'],
+                            y=item_data['Normalized'],
                             mode='lines',
-                            name=ticker,
+                            name=name,
                             line=dict(color=colors[idx % len(colors)], width=2),
                             opacity=0.7
                         ))

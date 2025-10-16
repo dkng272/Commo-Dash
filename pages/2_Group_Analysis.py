@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from commo_dashboard import create_equal_weight_index, create_regional_indexes, load_latest_news
-from classification_loader import load_data_with_classification
+from classification_loader import load_sql_data_with_classification
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
 
@@ -26,9 +26,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load data with dynamic classification
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
-    df = load_data_with_classification('data/cleaned_data.csv')
+    """Load commodity price data from SQL Server with classification (cached 1 hour)."""
+    df_raw = load_sql_data_with_classification(start_date='2024-01-01')
+    # Filter out items without classification
+    df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
     return df
 
 @st.cache_data
@@ -155,26 +158,26 @@ if view_mode == 'Index':
         line=dict(width=2)
     ))
 else:
-    # Get component tickers
-    tickers = sorted(df[df['Group'] == selected_group]['Ticker'].unique())
+    # Get component names
+    names = sorted(df[df['Group'] == selected_group]['Name'].unique())
 
     # Multi-select for components
-    selected_tickers = st.multiselect(
+    selected_names = st.multiselect(
         'Select Components to Display',
-        options=tickers,
-        default=tickers[:3] if len(tickers) > 3 else tickers
+        options=names,
+        default=names[:3] if len(names) > 3 else names
     )
 
-    if selected_tickers:
-        # Plot each selected ticker
-        for ticker in selected_tickers:
-            ticker_data = df[df['Ticker'] == ticker][['Date', 'Price']].sort_values('Date')
+    if selected_names:
+        # Plot each selected commodity name
+        for name in selected_names:
+            item_data = df[df['Name'] == name][['Date', 'Price']].sort_values('Date')
 
             fig.add_trace(go.Scatter(
-                x=ticker_data['Date'],
-                y=ticker_data['Price'],
+                x=item_data['Date'],
+                y=item_data['Price'],
                 mode='lines',
-                name=ticker,
+                name=name,
                 line=dict(width=2)
             ))
     else:
@@ -190,9 +193,9 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Display ticker components below chart
-tickers = df[df['Group'] == selected_group]['Ticker'].unique()
-st.caption(f"**Component Tickers:** {', '.join(sorted(tickers))}")
+# Display commodity components below chart
+names = df[df['Group'] == selected_group]['Name'].unique()
+st.caption(f"**Components:** {', '.join(sorted(names))}")
 
 # Market News for Selected Group
 st.divider()
@@ -260,9 +263,9 @@ if len(regional_keys) > 0:
 
             st.plotly_chart(fig_regional, use_container_width=True)
 
-            # Show tickers in this region below chart
-            regional_tickers = df[(df['Group'] == selected_group) & (df['Region'] == region_name)]['Ticker'].unique()
-            st.caption(f"**Component Tickers ({region_name}):** {', '.join(sorted(regional_tickers))}")
+            # Show commodity names in this region below chart
+            regional_names = df[(df['Group'] == selected_group) & (df['Region'] == region_name)]['Name'].unique()
+            st.caption(f"**Components ({region_name}):** {', '.join(sorted(regional_names))}")
 
             # Regional metrics
             regional_data = regional_combined_df[regional_key].dropna()
