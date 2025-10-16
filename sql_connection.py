@@ -327,26 +327,3 @@ def fetch_specific_sectors(
         result = result[result['Date'] >= start_date]
 
     return result
-
-
-#%% Utility Functions (for testing/debugging)
-
-def fetch_tables(schema: Optional[str] = None) -> pd.DataFrame:
-    """Return a DataFrame of base tables available in the target database.
-
-    Useful for testing and schema exploration.
-    """
-    query = (
-        "SELECT TABLE_SCHEMA, TABLE_NAME "
-        "FROM INFORMATION_SCHEMA.TABLES "
-        "WHERE TABLE_TYPE = 'BASE TABLE'"
-    )
-    params = None
-    if schema:
-        query += " AND TABLE_SCHEMA = %s"
-        params = (schema,)
-
-    with closing(get_connection()) as conn:
-        tables = pd.read_sql(query, conn, params=params)
-
-    return tables.sort_values(["TABLE_SCHEMA", "TABLE_NAME"]).reset_index(drop=True)

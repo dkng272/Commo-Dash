@@ -9,8 +9,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from sql_connection import (
     test_connection,
     fetch_ticker_reference,
-    fetch_all_commodity_data,
-    fetch_tables
+    fetch_all_commodity_data
 )
 
 #%% Page Configuration
@@ -71,25 +70,8 @@ if st.button("Load Ticker Reference"):
             st.error(f"Failed to load ticker reference: {e}")
             st.code(str(e))
 
-#%% Test 3: All Tables
-st.header("3. Database Tables")
-
-if st.button("Show All Tables"):
-    with st.spinner("Fetching tables..."):
-        try:
-            start_time = time.time()
-            tables = fetch_tables(schema='dbo')
-            elapsed = time.time() - start_time
-
-            st.success(f"✓ Found {len(tables)} tables in {elapsed:.2f}s")
-            st.dataframe(tables, use_container_width=True, height=400)
-
-        except Exception as e:
-            st.error(f"Failed to fetch tables: {e}")
-            st.code(str(e))
-
-#%% Test 4: Load All Data
-st.header("4. Load All Commodity Data")
+#%% Test 3: Load All Data
+st.header("3. Load All Commodity Data")
 
 st.markdown("""
 Test loading all commodity data with parallel processing.
@@ -152,7 +134,7 @@ if st.button("Load All Data", type="primary"):
             st.code(traceback.format_exc())
 
 #%% Summary
-st.header("5. Summary")
+st.header("4. Summary")
 
 st.markdown("""
 ### ✓ Tests Complete

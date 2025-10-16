@@ -499,7 +499,7 @@ if ticker_data:
                 font=dict(size=12)
             )
         )
-        st.plotly_chart(fig_inputs, use_container_width=True)
+        st.plotly_chart(fig_inputs, use_container_width=True, key="input_chart")
     else:
         st.info('No input commodities mapped')
 
@@ -626,7 +626,7 @@ if ticker_data:
                 font=dict(size=12)
             )
         )
-        st.plotly_chart(fig_outputs, use_container_width=True)
+        st.plotly_chart(fig_outputs, use_container_width=True, key="output_chart")
     else:
         st.info('No output commodities mapped')
 
@@ -873,7 +873,7 @@ if ticker_data:
                 font=dict(size=12)
             )
         )
-        st.plotly_chart(fig_combined, use_container_width=True)
+        st.plotly_chart(fig_combined, use_container_width=True, key="combined_chart")
 
         # Add interpretation notes
         if input_normalized is not None and output_normalized is not None:
