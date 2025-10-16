@@ -27,40 +27,8 @@ def load_data():
     """Load commodity price data from SQL Server with classification (cached 1 hour)."""
     df_raw = load_sql_data_with_classification(start_date='2024-01-01')
 
-    # Debug: Show before filtering
-    total_raw = len(df_raw)
-    has_name_col = 'Name' in df_raw.columns
-    unique_raw = df_raw['Name'].nunique() if has_name_col else df_raw['Ticker'].nunique()
-
     # Filter out items without classification (internal calculated fields)
     df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
-
-    # Debug: Show after filtering
-    total_filtered = len(df)
-    unique_filtered = df['Name'].nunique() if has_name_col else df['Ticker'].nunique()
-    filtered_out = unique_raw - unique_filtered
-
-    # Debug info
-    col_label = "Names" if has_name_col else "Tickers"
-    st.sidebar.info(f"""
-    **Data loaded from SQL:**
-    - Start date filter: 2024-01-01
-    - Columns: {', '.join(df_raw.columns)}
-    - Raw: {total_raw:,} rows, {unique_raw} {col_label}
-    - After classification: {total_filtered:,} rows, {unique_filtered} {col_label}
-    - Filtered out: {filtered_out} {col_label} (not in commo_list.xlsx)
-
-    **Sectors found:** {', '.join(sorted(df['Sector'].unique()))}
-    """)
-
-    # Export button for debugging
-    st.sidebar.download_button(
-        label="📥 Export Raw SQL Data",
-        data=df_raw.to_csv(index=False),
-        file_name=f"price_chart_raw_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv",
-        help="Download the raw data with classification before filtering"
-    )
 
     return df
 

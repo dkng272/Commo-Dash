@@ -327,6 +327,9 @@ __pycache__/
 - ✅ **Duplicate Chart Fix**: Fixed Streamlit duplicate element ID error in Ticker Analysis page
 - ✅ **Requirements Update**: Added `pymssql>=2.2.0` to requirements.txt
 - ✅ **Secrets Configuration**: Added `DB_AILAB_CONN` to `.streamlit/secrets.toml`
+- ✅ **Price Chart Migration**: Migrated `pages/1_Price_Chart.py` to use SQL data via `load_sql_data_with_classification()`
+- ✅ **Classification Fix**: Fixed mapping to use `Name` column (not `Ticker`) to match commo_list.xlsx Item column
+- ✅ **Caching Strategy**: Implemented 1-hour cache (3600s) for daily data updates, shared across all pages
 
 #### SQL Data Architecture
 **Schema Structure**:
@@ -335,11 +338,23 @@ __pycache__/
 - Each sector table: Ticker, Date, Price columns
 - Data loading: Fetch Ticker_Reference → Loop through sectors → Concatenate all data
 
+**IMPORTANT - Column Naming Convention**:
+- **Ticker**: Short code from SQL (e.g., "ORE62", "HRCVN") - used internally
+- **Name**: Descriptive name from SQL (e.g., "Ore 62", "HRC HPG") - **THIS MAPS TO commo_list.xlsx Item column**
+- **Item**: Column in commo_list.xlsx that contains commodity names
+- **Mapping Rule**: Always use `df['Name']` (from SQL) to map to `commo_list['Item']`, NEVER use `df['Ticker']`
+
+**Data Flow**:
+1. SQL returns: Ticker, Date, Price, Name (no Sector/Group/Region yet)
+2. classification_loader maps: Name → Item in commo_list.xlsx → adds Sector, Group, Region
+3. Pages filter: `df[df['Name'] == item]` where item comes from commo_list.xlsx
+
 **Key Functions** (`sql_connection.py`):
 ```python
 fetch_ticker_reference()           # Load ticker-to-sector mapping
 fetch_sector_data(sector_name)     # Load specific sector table
 fetch_all_commodity_data()         # Load all sectors (with parallel option)
+                                   # Returns: Ticker, Date, Price, Name (NO Sector column)
 fetch_specific_sectors()           # Load only selected sectors (faster)
 ```
 
@@ -356,19 +371,25 @@ fetch_specific_sectors()           # Load only selected sectors (faster)
 4. Performance comparison - Sequential vs parallel loading
 
 **Migration Status**:
-- ✅ SQL connection module ready
+- ✅ SQL connection module ready with caching
 - ✅ Test page validates connection and data loading
-- ⏳ Pending: Migrate existing pages from CSV to SQL
-- ⏳ Pending: Update data loading functions in Dashboard, Group Analysis, Ticker Analysis
+- ✅ **Price Chart migrated to SQL** (pages/1_Price_Chart.py)
+- ⏳ Pending: Migrate Dashboard, Group Analysis, Ticker Analysis pages
 
 **Next Steps**:
-1. Update `Dashboard.py` to use `fetch_all_commodity_data()`
-2. Update `pages/1_Price_Chart.py` (simplest migration)
+1. ✅ ~~Update `pages/1_Price_Chart.py`~~ (COMPLETE)
+2. Update `Dashboard.py` to use `load_sql_data_with_classification()`
 3. Update `pages/2_Group_Analysis.py`
 4. Update `pages/3_Ticker_Analysis.py` (most complex)
 5. Keep CSV files as backup for 1-2 weeks
 6. Monitor performance and cache hit rates
 7. Delete test page after full migration
+
+**Key Lessons Learned**:
+1. Always map using `Name` column (from SQL) to `Item` column (from commo_list.xlsx)
+2. SQL returns NO Sector/Group/Region - these are added by classification_loader
+3. Test page excluded Textile by default - can cause confusion with row counts
+4. Cache is shared across all pages - clear cache after code changes
 
 ### Individual Commodity Price Viewer (Previous Session)
 - ✅ **New Page**: Created pages/1_Price_Chart.py (formerly 6_Individual_Item_Viewer.py)

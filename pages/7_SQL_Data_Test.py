@@ -81,7 +81,7 @@ col1, col2 = st.columns(2)
 with col1:
     use_parallel = st.checkbox("Use Parallel Loading", value=True, help="Faster loading (10-15s vs 30s)")
 with col2:
-    exclude_textile = st.checkbox("Exclude Textile", value=True)
+    exclude_textile = st.checkbox("Exclude Textile", value=False)
 
 if st.button("Load All Data", type="primary"):
     exclude_sectors = ['Textile'] if exclude_textile else None
