@@ -12,18 +12,18 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 from commo_dashboard import create_equal_weight_index, create_regional_indexes
 from ssi_api import fetch_historical_price
-from classification_loader import load_data_with_classification
+from classification_loader import load_sql_data_with_classification
 
 # Global start date for all data on this page
 GLOBAL_START_DATE = '2024-01-01'
 
 # Load data with dynamic classification
-@st.cache_data
+@st.cache_data(ttl=3600)
 def load_data():
-    data_path = os.path.join(parent_dir, 'data', 'cleaned_data.csv')
-    df = load_data_with_classification(data_path)
-    # Filter to global start date
-    df = df[df['Date'] >= GLOBAL_START_DATE]
+    """Load commodity price data from SQL Server with classification (cached 1 hour)."""
+    df_raw = load_sql_data_with_classification(start_date=GLOBAL_START_DATE)
+    # Filter out items without classification
+    df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
     return df
 
 @st.cache_data
@@ -68,7 +68,8 @@ def get_index_data(item, group, region, df, all_indexes, regional_indexes):
     """
     # Try to use specific item data first
     if item and item.strip():
-        item_data = df[df['Ticker'] == item].copy()
+        # Use Name column for commodity series (matches MongoDB mappings and commo_list Item)
+        item_data = df[df['Name'] == item].copy()
         if not item_data.empty and item_data['Price'].notna().any():
             return item_data[['Date', 'Price']].sort_values('Date'), item
         # If item specified but not found or has no valid prices, continue to fallback
@@ -312,14 +313,18 @@ ticker_mapping = load_ticker_mapping()
 all_indexes, regional_indexes = build_indexes(df)
 
 # Get all tickers
-all_tickers = [item['ticker'] for item in ticker_mapping]
+all_tickers = sorted([item['ticker'] for item in ticker_mapping])
 
 st.title('Ticker Commodity Analysis')
 
 # Sidebar for ticker selection
+default_ticker = 'DCM'
+default_index = all_tickers.index(default_ticker) if default_ticker in all_tickers else 0
+
 selected_ticker = st.sidebar.selectbox(
     'Select Stock Ticker',
-    options=sorted(all_tickers)
+    options=all_tickers,
+    index=default_index
 )
 
 # Sidebar option to aggregate multiple items
