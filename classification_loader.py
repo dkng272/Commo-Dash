@@ -27,15 +27,20 @@ def get_classification_df():
 
 def apply_classification(df):
     """
-    Apply classification to a dataframe with a 'Ticker' column.
+    Apply classification to a dataframe with a 'Ticker' or 'Name' column.
+    Uses 'Name' column if available (from SQL), otherwise falls back to 'Ticker'.
     Returns dataframe with Group, Region, and Sector columns added.
     """
     group_map, region_map, sector_map = load_classification()
 
     df = df.copy()
-    df['Group'] = df['Ticker'].map(group_map)
-    df['Region'] = df['Ticker'].map(region_map)
-    df['Sector'] = df['Ticker'].map(sector_map)
+
+    # Use 'Name' column if it exists (from SQL), otherwise use 'Ticker' (legacy CSV)
+    mapping_column = 'Name' if 'Name' in df.columns else 'Ticker'
+
+    df['Group'] = df[mapping_column].map(group_map)
+    df['Region'] = df[mapping_column].map(region_map)
+    df['Sector'] = df[mapping_column].map(sector_map)
 
     return df
 
