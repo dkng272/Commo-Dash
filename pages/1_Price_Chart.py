@@ -51,8 +51,16 @@ def load_data():
     - Filtered out: {filtered_out} {col_label} (not in commo_list.xlsx)
 
     **Sectors found:** {', '.join(sorted(df['Sector'].unique()))}
-    **Note:** If numbers seem wrong, clear cache!
     """)
+
+    # Export button for debugging
+    st.sidebar.download_button(
+        label="📥 Export Raw SQL Data",
+        data=df_raw.to_csv(index=False),
+        file_name=f"price_chart_raw_data_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        mime="text/csv",
+        help="Download the raw data with classification before filtering"
+    )
 
     return df
 
