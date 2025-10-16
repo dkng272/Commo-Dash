@@ -311,7 +311,31 @@ __pycache__/
 
 ## Recent Updates Summary
 
-### Dashboard Quick Viewer Features (Latest Session)
+### Individual Commodity Price Viewer (Latest Session)
+- ✅ **New Page**: Created pages/1_Price_Chart.py (formerly 6_Individual_Item_Viewer.py)
+- ✅ **Sidebar Filters**: Cascading filters (Sector → Group → Region → Items)
+- ✅ **Summary Statistics Table**: Shows all filtered items with 1D/1W/1M/3M/6M/1Y changes
+- ✅ **Color-Coded Metrics**: Green (positive), red (negative), gray (zero/N/A)
+- ✅ **Chart Section**: Only displays when items are selected
+- ✅ **Time Period Aggregation**: Daily/Weekly/Monthly/Quarterly averaging
+- ✅ **Display Modes**: Normalized (Base 100) or Absolute Prices
+- ✅ **Session State Management**: Persists selections across reruns
+- ✅ **Select All/Clear Buttons**: Quick selection controls
+- ✅ **Table-First Design**: Browse all items in table, select specific ones to chart
+
+### UI/UX Improvements (Latest Session)
+- ✅ **Compact Gradient Headers**: Reduced padding (1px 12px) and margins (12px) across all pages
+- ✅ **Consistent Styling**: Applied compact headers to Dashboard, Group Analysis, Ticker Analysis, Price Chart
+- ✅ **Hide Index Column**: Removed row numbers from summary statistics table
+- ✅ **Page Title Simplification**: Changed to simple st.title() instead of large HTML headers
+
+### Reports System Enhancements (Latest Session)
+- ✅ **Upload Timestamp**: Added `date_uploaded` field to track when reports are processed
+- ✅ **Reports Upload Admin**: Displays both report date and upload timestamp
+- ✅ **Reports Summary Page**: Shows report date, type, and upload date (or N/A if blank)
+- ✅ **Timestamp Format**: YYYY-MM-DD HH:MM:SS for precise tracking
+
+### Dashboard Quick Viewer Features (Previous Session)
 - ✅ **Quick Viewer for Commodity Swings**: View top 5 movers with 2-chart layout (Group Index + Component Tickers)
 - ✅ **Quick Viewer for Stock Spreads**: View top 5 movers with 4-chart grid (Input/Output/Stock/Spread)
 - ✅ **Group-Specific News**: Each commodity quick viewer shows news for selected group
@@ -419,4 +443,4 @@ python pdf_processor.py
 
 ---
 
-**Last Updated**: 2025-10-14 - MongoDB integration complete, deployed on Streamlit Cloud
+**Last Updated**: 2025-10-15 - Individual Commodity Price Viewer added, UI improvements, and reports timestamp tracking
