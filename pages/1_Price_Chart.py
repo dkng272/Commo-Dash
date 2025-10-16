@@ -200,7 +200,8 @@ if len(available_items) > 0:
     summary_rows = []
 
     for item in available_items:
-        item_df = df_all[df_all['Ticker'] == item][['Date', 'Price']].copy()
+        # Filter by Name column (not Ticker) since item comes from commo_list Item
+        item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
         item_df = item_df.sort_values('Date')
 
         if len(item_df) == 0:
@@ -301,7 +302,8 @@ if len(available_items) > 0:
         # Prepare data for selected items
         chart_data = []
         for item in selected_items:
-            item_df = df_all[df_all['Ticker'] == item][['Date', 'Price']].copy()
+            # Filter by Name column (not Ticker) since item comes from commo_list Item
+            item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
             item_df = item_df.sort_values('Date')
 
             # Aggregate by period
