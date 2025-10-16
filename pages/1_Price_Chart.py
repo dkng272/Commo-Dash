@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from classification_loader import load_data_with_classification, load_classification
+from classification_loader import load_sql_data_with_classification, get_classification_df
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Individual Item Viewer")
 
@@ -21,19 +21,19 @@ st.markdown("""
 st.title("📊 Commodity Viewer")
 
 
-# Load data
-@st.cache_data(ttl=300)
+# Load data from SQL
+@st.cache_data(ttl=3600)
 def load_data():
-    df = load_data_with_classification()
+    """Load commodity price data from SQL Server with classification (cached 1 hour)."""
+    df = load_sql_data_with_classification(start_date='2024-01-01')
     # Filter out items without classification (internal calculated fields)
     df = df.dropna(subset=['Group', 'Region', 'Sector'])
     return df
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=3600)
 def load_classification_data():
-    classification = pd.read_excel('commo_list.xlsx')
-    classification['Item'] = classification['Item'].str.strip()
-    return classification
+    """Load classification structure for dropdown filters (cached 1 hour)."""
+    return get_classification_df()
 
 df_all = load_data()
 classification_df = load_classification_data()

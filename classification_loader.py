@@ -15,6 +15,16 @@ def load_classification():
 
     return group_map, region_map, sector_map
 
+
+def get_classification_df():
+    """
+    Load and return the classification DataFrame directly.
+    Returns: DataFrame with Sector, Group, Region, Item columns.
+    """
+    classification = pd.read_excel('commo_list.xlsx')
+    classification['Item'] = classification['Item'].str.strip()
+    return classification
+
 def apply_classification(df):
     """
     Apply classification to a dataframe with a 'Ticker' column.
@@ -43,6 +53,27 @@ def load_data_with_classification(price_data_path='data/cleaned_data.csv'):
         df = df.drop(columns=cols_to_drop)
 
     # Apply fresh classification
+    df = apply_classification(df)
+
+    return df
+
+
+def load_sql_data_with_classification(start_date='2024-01-01'):
+    """
+    Load price data from SQL Server and apply classification.
+
+    Args:
+        start_date: Filter data from this date onwards (YYYY-MM-DD format)
+
+    Returns:
+        DataFrame with columns: Ticker, Date, Price, Name, Sector, Group, Region
+    """
+    from sql_connection import fetch_all_commodity_data
+
+    # Fetch all commodity data from SQL
+    df = fetch_all_commodity_data(start_date=start_date, parallel=True)
+
+    # Apply classification (Group, Region, Sector based on Ticker)
     df = apply_classification(df)
 
     return df

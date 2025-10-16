@@ -10,22 +10,27 @@ Commodity price tracking and analysis system with Vietnamese stock ticker integr
 ```
 Commo Dash/
 ├── data/
-│   ├── cleaned_data.csv           # Main commodity price data
+│   ├── cleaned_data.csv           # Main commodity price data (backup, migrating to SQL)
 │   └── commo_list.xlsx            # Commodity classification
 ├── pages/                          # Streamlit pages
-│   ├── Group_Analysis.py          # Commodity group deep dive
-│   ├── Ticker_Analysis.py         # Stock ticker analysis
-│   ├── Reports_Summary.py         # Research reports browser
-│   └── Ticker_Mapping_Admin.py    # Ticker mapping editor (MongoDB)
+│   ├── 1_Price_Chart.py           # Individual commodity price viewer
+│   ├── 2_Group_Analysis.py        # Commodity group deep dive
+│   ├── 3_Ticker_Analysis.py       # Stock ticker analysis
+│   ├── 4_Reports_Summary.py       # Research reports browser
+│   ├── 5_Reports_Upload_Admin.py  # Upload PDFs to MongoDB
+│   ├── 6_Ticker_Mapping_Admin.py  # Ticker mapping editor (MongoDB)
+│   └── 7_SQL_Data_Test.py         # SQL connection test page (NEW)
 ├── news/
 │   ├── all_reports.json           # Consolidated research reports
 │   ├── reports/                   # PDF storage
 │   └── pdf_processor.py           # PDF processing script
 ├── Dashboard.py                    # Main dashboard (homepage)
-├── mongodb_utils.py               # MongoDB connection & CRUD (NEW)
+├── sql_connection.py              # SQL Server connection & data loading (NEW)
+├── mongodb_utils.py               # MongoDB connection & CRUD
 ├── commo_dashboard.py             # Index creation functions
 ├── classification_loader.py       # Dynamic classification loading
 ├── ssi_api.py                     # Stock price API integration
+├── SQL_MIGRATION_PLAN.md          # Detailed SQL migration guide (NEW)
 └── ticker_mappings_final.json     # Backup (data now in MongoDB)
 ```
 
@@ -286,6 +291,7 @@ streamlit>=1.30.0
 pandas>=2.0.0
 plotly>=5.18.0
 pymongo>=4.6.0      # MongoDB integration
+pymssql>=2.2.0      # SQL Server integration (NEW)
 PyMuPDF>=1.23.0     # PDF processing
 openai>=1.0.0       # AI summarization
 openpyxl>=3.1.0     # Excel reading
@@ -295,9 +301,10 @@ openpyxl>=3.1.0     # Excel reading
 **Local**: `.streamlit/secrets.toml`
 ```toml
 MONGODB_URI = "mongodb+srv://..."
+DB_AILAB_CONN = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=tcp:dcdwhprod.database.windows.net,1433;DATABASE=dclab;UID=dclab_readonly;PWD=DHS#@vGESADdf!;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
 ```
 
-**Streamlit Cloud**: Add to Secrets section in dashboard
+**Streamlit Cloud**: Add both secrets to Secrets section in dashboard
 
 ### Git Ignore
 ```
@@ -311,7 +318,59 @@ __pycache__/
 
 ## Recent Updates Summary
 
-### Individual Commodity Price Viewer (Latest Session)
+### SQL Server Integration (Current Session)
+- ✅ **SQL Connection Module**: Created `sql_connection.py` for live data loading from SQL Server
+- ✅ **Data Source Migration**: Transitioning from CSV files to SQL Server as primary data source
+- ✅ **Parallel Loading**: Implemented ThreadPoolExecutor for concurrent sector loading (10-15s vs 30s)
+- ✅ **Test Page**: Created `pages/7_SQL_Data_Test.py` for connection validation
+- ✅ **Schema Adaptation**: Adapted from pyodbc (work computer) to pymssql (Streamlit Cloud)
+- ✅ **Duplicate Chart Fix**: Fixed Streamlit duplicate element ID error in Ticker Analysis page
+- ✅ **Requirements Update**: Added `pymssql>=2.2.0` to requirements.txt
+- ✅ **Secrets Configuration**: Added `DB_AILAB_CONN` to `.streamlit/secrets.toml`
+
+#### SQL Data Architecture
+**Schema Structure**:
+- `Ticker_Reference` table: Maps tickers to sectors (Ticker, Name, Sector, Data_Source, Active)
+- Sector tables: One table per sector (Steel, Agriculture, Energy, etc.)
+- Each sector table: Ticker, Date, Price columns
+- Data loading: Fetch Ticker_Reference → Loop through sectors → Concatenate all data
+
+**Key Functions** (`sql_connection.py`):
+```python
+fetch_ticker_reference()           # Load ticker-to-sector mapping
+fetch_sector_data(sector_name)     # Load specific sector table
+fetch_all_commodity_data()         # Load all sectors (with parallel option)
+fetch_specific_sectors()           # Load only selected sectors (faster)
+```
+
+**Performance**:
+- Sequential loading: ~30 seconds for all sectors
+- Parallel loading (default): ~10-15 seconds for all sectors
+- With caching (@st.cache_data, TTL=300): <0.1s on cache hits
+- Total data size: ~14MB for all commodity prices
+
+**Test Page Features**:
+1. Connection test - Verify SQL Server connectivity
+2. Ticker Reference test - Load and display sector mapping
+3. Full data load test - Load all commodity data with parallel option
+4. Performance comparison - Sequential vs parallel loading
+
+**Migration Status**:
+- ✅ SQL connection module ready
+- ✅ Test page validates connection and data loading
+- ⏳ Pending: Migrate existing pages from CSV to SQL
+- ⏳ Pending: Update data loading functions in Dashboard, Group Analysis, Ticker Analysis
+
+**Next Steps**:
+1. Update `Dashboard.py` to use `fetch_all_commodity_data()`
+2. Update `pages/1_Price_Chart.py` (simplest migration)
+3. Update `pages/2_Group_Analysis.py`
+4. Update `pages/3_Ticker_Analysis.py` (most complex)
+5. Keep CSV files as backup for 1-2 weeks
+6. Monitor performance and cache hit rates
+7. Delete test page after full migration
+
+### Individual Commodity Price Viewer (Previous Session)
 - ✅ **New Page**: Created pages/1_Price_Chart.py (formerly 6_Individual_Item_Viewer.py)
 - ✅ **Sidebar Filters**: Cascading filters (Sector → Group → Region → Items)
 - ✅ **Summary Statistics Table**: Shows all filtered items with 1D/1W/1M/3M/6M/1Y changes
@@ -417,6 +476,18 @@ __pycache__/
 # Source: all_reports.json filtered by commodity group
 ```
 
+### `fetch_all_commodity_data()` - NEW
+```python
+# From sql_connection.py
+# Returns: DataFrame with Ticker, Date, Price, Name, Sector columns
+# Method: Parallel loading from SQL Server sector tables
+# Parameters:
+#   - exclude_sectors: List[str] (e.g., ['Textile'])
+#   - start_date: str (YYYY-MM-DD format)
+#   - parallel: bool (default True, 10-15s vs 30s sequential)
+#   - max_workers: int (default 5 threads)
+```
+
 ---
 
 ## Common Workflows
@@ -443,4 +514,4 @@ python pdf_processor.py
 
 ---
 
-**Last Updated**: 2025-10-15 - Individual Commodity Price Viewer added, UI improvements, and reports timestamp tracking
+**Last Updated**: 2025-10-16 - SQL Server integration complete, ready for data source migration from CSV to live SQL database

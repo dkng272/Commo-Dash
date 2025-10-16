@@ -140,6 +140,20 @@ def fetch_ticker_reference(schema: Optional[str] = "dbo") -> pd.DataFrame:
     Returns:
         DataFrame with columns: Ticker, Name, Sector, Data_Source, Active
     """
+    if st is not None:
+        return _cached_fetch_ticker_reference(schema)
+    else:
+        return _fetch_ticker_reference_impl(schema)
+
+
+@st.cache_data(ttl=3600) if st is not None else lambda f: f
+def _cached_fetch_ticker_reference(schema: Optional[str] = "dbo") -> pd.DataFrame:
+    """Cached version for Streamlit (1 hour TTL)."""
+    return _fetch_ticker_reference_impl(schema)
+
+
+def _fetch_ticker_reference_impl(schema: Optional[str] = "dbo") -> pd.DataFrame:
+    """Implementation of fetch_ticker_reference."""
     qualified_table = _format_identifier("Ticker_Reference")
     if schema:
         qualified_table = f"{_format_identifier(schema)}.{qualified_table}"
@@ -217,6 +231,36 @@ def fetch_all_commodity_data(
     Returns:
         DataFrame with columns: Ticker, Date, Price, Name, Sector
     """
+    if st is not None:
+        # Convert list to tuple for caching (lists are not hashable)
+        exclude_tuple = tuple(exclude_sectors) if exclude_sectors else None
+        return _cached_fetch_all_commodity_data(exclude_tuple, start_date, schema, parallel, max_workers)
+    else:
+        return _fetch_all_commodity_data_impl(exclude_sectors, start_date, schema, parallel, max_workers)
+
+
+@st.cache_data(ttl=3600) if st is not None else lambda f: f
+def _cached_fetch_all_commodity_data(
+    exclude_sectors: Optional[tuple] = None,
+    start_date: Optional[str] = None,
+    schema: Optional[str] = "dbo",
+    parallel: bool = True,
+    max_workers: int = 5
+) -> pd.DataFrame:
+    """Cached version for Streamlit (1 hour TTL)."""
+    # Convert tuple back to list for implementation
+    exclude_list = list(exclude_sectors) if exclude_sectors else None
+    return _fetch_all_commodity_data_impl(exclude_list, start_date, schema, parallel, max_workers)
+
+
+def _fetch_all_commodity_data_impl(
+    exclude_sectors: Optional[Sequence[str]] = None,
+    start_date: Optional[str] = None,
+    schema: Optional[str] = "dbo",
+    parallel: bool = True,
+    max_workers: int = 5
+) -> pd.DataFrame:
+    """Implementation of fetch_all_commodity_data."""
     # Load ticker reference
     ticker_ref = fetch_ticker_reference(schema=schema)
 
