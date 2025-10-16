@@ -232,7 +232,8 @@ def fetch_all_commodity_data(
         max_workers: Max threads for parallel loading (default: 5)
 
     Returns:
-        DataFrame with columns: Ticker, Date, Price, Name, Sector
+        DataFrame with columns: Ticker, Date, Price, Name
+        Note: Sector column is NOT included - use classification_loader to add it
     """
     if st is not None:
         # Convert list to tuple for caching (lists are not hashable)
@@ -290,7 +291,7 @@ def _fetch_all_commodity_data_impl(
         def load_sector(sector_name):
             try:
                 df = fetch_sector_data(sector_name, schema=schema)
-                df['Sector'] = sector_name
+                # Don't add Sector column here - let classification_loader handle it
                 return df, None
             except Exception as e:
                 return None, (sector_name, str(e))
@@ -311,7 +312,7 @@ def _fetch_all_commodity_data_impl(
         for sector_name in sectors:
             try:
                 df = fetch_sector_data(sector_name, schema=schema)
-                df['Sector'] = sector_name
+                # Don't add Sector column here - let classification_loader handle it
                 full_data.append(df)
             except Exception as e:
                 failed_sectors.append((sector_name, str(e)))
@@ -325,7 +326,7 @@ def _fetch_all_commodity_data_impl(
 
     # Concatenate all data
     if not full_data:
-        return pd.DataFrame(columns=['Ticker', 'Date', 'Price', 'Name', 'Sector'])
+        return pd.DataFrame(columns=['Ticker', 'Date', 'Price', 'Name'])
 
     result = pd.concat(full_data, ignore_index=True)
 
@@ -354,7 +355,8 @@ def fetch_specific_sectors(
         schema: Database schema (default: 'dbo')
 
     Returns:
-        DataFrame with columns: Ticker, Date, Price, Name, Sector
+        DataFrame with columns: Ticker, Date, Price, Name
+        Note: Sector column is NOT included - use classification_loader to add it
     """
     # Load ticker reference for name mapping
     ticker_ref = fetch_ticker_reference(schema=schema)
@@ -365,7 +367,7 @@ def fetch_specific_sectors(
     for sector_name in sector_names:
         try:
             df = fetch_sector_data(sector_name, schema=schema)
-            df['Sector'] = sector_name
+            # Don't add Sector column here - let classification_loader handle it
             full_data.append(df)
         except Exception as e:
             print(f"Warning: Could not load sector '{sector_name}': {e}")
@@ -373,7 +375,7 @@ def fetch_specific_sectors(
 
     # Concatenate all data
     if not full_data:
-        return pd.DataFrame(columns=['Ticker', 'Date', 'Price', 'Name', 'Sector'])
+        return pd.DataFrame(columns=['Ticker', 'Date', 'Price', 'Name'])
 
     result = pd.concat(full_data, ignore_index=True)
 
