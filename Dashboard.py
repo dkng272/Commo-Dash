@@ -317,8 +317,20 @@ with tab1:
     # Quick Viewer for Commodity Index Swings
     @st.fragment
     def render_commodity_quick_viewer():
-        # Get top 5 groups by 50D absolute swing
-        available_groups = summary_df.nlargest(5, '50D Abs Swing')['Group'].tolist()
+        # Time period selector
+        time_period = st.radio(
+            "Select Time Period for Top Movers",
+            options=['5D', '10D', '50D', '150D'],
+            index=2,  # Default to 50D
+            horizontal=True,
+            key="commodity_time_period"
+        )
+
+        # Map time period to column name
+        period_column = f'{time_period} Abs Swing'
+
+        # Get top 5 groups by selected time period
+        available_groups = summary_df.nlargest(5, period_column)['Group'].tolist()
 
         if available_groups:
             # Dropdown selector
@@ -326,7 +338,7 @@ with tab1:
                 "Select Commodity Group",
                 options=available_groups,
                 index=0,
-                help="Top 5 commodity groups by 50D swing",
+                help=f"Top 5 commodity groups by {time_period} swing",
                 key="commodity_group_selector"
             )
 
@@ -514,7 +526,7 @@ with tab1:
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers (50D)</h3>
+            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers</h3>
         </div>
     """, unsafe_allow_html=True)
     render_commodity_quick_viewer()
@@ -579,8 +591,20 @@ with tab2:
     # Quick Chart Viewer inside Stock Spreads tab
     @st.fragment
     def render_quick_viewer():
-        # Get top 5 tickers based on current selection
-        available_tickers = spreads_df.nlargest(5, 'Spread_50D')['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, 'Spread_50D')['Ticker'].tolist()
+        # Time period selector
+        time_period_stock = st.radio(
+            "Select Time Period for Top Movers",
+            options=['5D', '10D', '50D', '150D'],
+            index=2,  # Default to 50D
+            horizontal=True,
+            key="stock_time_period"
+        )
+
+        # Map time period to column name
+        spread_column = f'Spread_{time_period_stock}'
+
+        # Get top 5 tickers based on current selection and time period
+        available_tickers = spreads_df.nlargest(5, spread_column)['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, spread_column)['Ticker'].tolist()
 
         if available_tickers:
             # Simple dropdown selector
@@ -588,7 +612,7 @@ with tab2:
                 "Select Ticker",
                 options=available_tickers,
                 index=0,
-                help="Type or select from top 5 movers (50D spread)"
+                help=f"Type or select from top 5 movers ({time_period_stock} spread)"
             )
 
             st.divider()
@@ -798,7 +822,7 @@ with tab2:
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers (50D)</h3>
+            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers</h3>
         </div>
     """, unsafe_allow_html=True)
     render_quick_viewer()
