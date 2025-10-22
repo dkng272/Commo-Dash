@@ -200,6 +200,26 @@ with tab2:
                 with col1:
                     st.markdown(f"**Editing:** `{selected_item}`")
 
+                    # Rename item option
+                    st.markdown("**Rename Item (optional)**")
+                    rename_item = st.checkbox("Rename this item to match SQL name", key="rename_checkbox")
+
+                    if rename_item:
+                        new_item_name_selected = st.selectbox(
+                            "Select SQL item name",
+                            options=[""] + sql_items,
+                            help="Choose the correct name from SQL database"
+                        )
+                        if new_item_name_selected:
+                            st.info(f"Will rename '{selected_item}' → '{new_item_name_selected}'")
+                            new_item_name = new_item_name_selected
+                        else:
+                            new_item_name = selected_item
+                    else:
+                        new_item_name = selected_item
+
+                    st.divider()
+
                     # Sector selector
                     current_sector = current.get('sector', '')
                     sector_options = [""] + unique_sectors
@@ -270,15 +290,19 @@ with tab2:
 
                 with col_btn1:
                     if st.button("💾 Save Changes", type="primary", use_container_width=True):
-                        # Update classification
-                        classifications[idx] = {
-                            'item': selected_item,
-                            'sector': new_sector,
-                            'group': new_group,
-                            'region': new_region
-                        }
-                        save_classifications(classifications)
-                        st.rerun()
+                        # Check if new name already exists (when renaming)
+                        if new_item_name != selected_item and new_item_name in [c['item'] for c in classifications]:
+                            st.error(f"❌ Item '{new_item_name}' already exists! Choose a different name.")
+                        else:
+                            # Update classification (with possible rename)
+                            classifications[idx] = {
+                                'item': new_item_name,
+                                'sector': new_sector,
+                                'group': new_group,
+                                'region': new_region
+                            }
+                            save_classifications(classifications)
+                            st.rerun()
 
                 with col_btn2:
                     if st.button("🗑️ Delete Item", type="secondary", use_container_width=True):

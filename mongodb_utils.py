@@ -177,7 +177,7 @@ def load_commodity_classifications() -> List[Dict[str, Any]]:
     classifications = list(collection.find({}, {'_id': 0}))
 
     if not classifications:
-        msg = "⚠️ No commodity classifications found in MongoDB. Using Excel fallback."
+        msg = "⚠️ No commodity classifications found in MongoDB. Please run the migration script: python migrate_commo_list_to_mongodb.py"
         if HAS_STREAMLIT:
             st.warning(msg)
         else:
