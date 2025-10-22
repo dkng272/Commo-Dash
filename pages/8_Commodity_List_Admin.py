@@ -37,7 +37,11 @@ def load_sql_items():
     try:
         df = fetch_all_commodity_data(start_date='2024-01-01', parallel=True)
         if 'Name' in df.columns:
-            return sorted(df['Name'].unique().tolist())
+            # Filter out NaN and non-string values, then sort
+            unique_names = df['Name'].dropna().unique()
+            # Convert to string and filter out any remaining non-strings
+            valid_names = [str(name) for name in unique_names if isinstance(name, str) or pd.notna(name)]
+            return sorted(valid_names)
         return []
     except Exception as e:
         st.error(f"Error loading SQL items: {e}")
