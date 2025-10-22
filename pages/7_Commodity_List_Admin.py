@@ -116,18 +116,6 @@ st.sidebar.metric("Total Classified Items", len(df_classifications))
 st.sidebar.metric("Total SQL Items", len(sql_items))
 st.sidebar.metric("Unmapped Items", len(unmapped_items))
 
-st.sidebar.divider()
-
-# Show unmapped items
-if unmapped_items:
-    st.sidebar.subheader("⚠️ Unmapped SQL Items")
-    st.sidebar.caption(f"{len(unmapped_items)} items need classification:")
-    with st.sidebar.expander(f"View {len(unmapped_items)} unmapped items", expanded=False):
-        for item in unmapped_items[:20]:  # Show first 20
-            st.sidebar.text(f"• {item}")
-        if len(unmapped_items) > 20:
-            st.sidebar.caption(f"... and {len(unmapped_items) - 20} more")
-
 # ===== Main Content Tabs =====
 
 # Use radio buttons for tab navigation (preserves state better than st.tabs)
