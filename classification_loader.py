@@ -3,9 +3,37 @@ import pandas as pd
 
 def load_classification():
     """
-    Load commodity classification from commo_list.xlsx.
+    Load commodity classification from MongoDB (primary) or commo_list.xlsx (fallback).
     Returns dictionaries for Group, Region, and Sector mappings.
     """
+    try:
+        # Try loading from MongoDB first
+        from mongodb_utils import load_commodity_classifications
+        classifications = load_commodity_classifications()
+
+        if classifications:
+            # Convert list of dicts to DataFrame
+            classification = pd.DataFrame(classifications)
+
+            # Ensure Item column exists and is stripped
+            if 'item' in classification.columns:
+                classification.rename(columns={'item': 'Item'}, inplace=True)
+            classification['Item'] = classification['Item'].str.strip()
+
+            # Capitalize column names if needed
+            for col in ['sector', 'group', 'region']:
+                if col in classification.columns:
+                    classification.rename(columns={col: col.capitalize()}, inplace=True)
+
+            group_map = classification.set_index('Item')['Group'].to_dict()
+            region_map = classification.set_index('Item')['Region'].to_dict()
+            sector_map = classification.set_index('Item')['Sector'].to_dict()
+
+            return group_map, region_map, sector_map
+    except Exception as e:
+        print(f"MongoDB load failed, using Excel fallback: {e}")
+
+    # Fallback to Excel file
     classification = pd.read_excel('commo_list.xlsx')
     classification['Item'] = classification['Item'].str.strip()
 
@@ -18,9 +46,33 @@ def load_classification():
 
 def get_classification_df():
     """
-    Load and return the classification DataFrame directly.
+    Load and return the classification DataFrame directly from MongoDB (primary) or commo_list.xlsx (fallback).
     Returns: DataFrame with Sector, Group, Region, Item columns.
     """
+    try:
+        # Try loading from MongoDB first
+        from mongodb_utils import load_commodity_classifications
+        classifications = load_commodity_classifications()
+
+        if classifications:
+            # Convert list of dicts to DataFrame
+            classification = pd.DataFrame(classifications)
+
+            # Ensure Item column exists and is stripped
+            if 'item' in classification.columns:
+                classification.rename(columns={'item': 'Item'}, inplace=True)
+            classification['Item'] = classification['Item'].str.strip()
+
+            # Capitalize column names if needed
+            for col in ['sector', 'group', 'region']:
+                if col in classification.columns:
+                    classification.rename(columns={col: col.capitalize()}, inplace=True)
+
+            return classification
+    except Exception as e:
+        print(f"MongoDB load failed, using Excel fallback: {e}")
+
+    # Fallback to Excel file
     classification = pd.read_excel('commo_list.xlsx')
     classification['Item'] = classification['Item'].str.strip()
     return classification

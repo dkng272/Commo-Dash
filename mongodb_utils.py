@@ -160,3 +160,70 @@ def save_reports(reports: List[Dict[str, Any]]) -> bool:
         else:
             print(msg)
         return False
+
+# ==================== Commodity Classification Functions ====================
+
+def load_commodity_classifications() -> List[Dict[str, Any]]:
+    """
+    Load commodity classifications from MongoDB
+    Returns list of classification dictionaries
+
+    Schema: {"item": "Ore 62", "sector": "Steel Material", "group": "Iron Ore", "region": "China"}
+    """
+    db = get_database()
+    collection = db["commodity_classification"]
+
+    # Fetch all classifications, exclude MongoDB's _id field
+    classifications = list(collection.find({}, {'_id': 0}))
+
+    if not classifications:
+        msg = "⚠️ No commodity classifications found in MongoDB. Using Excel fallback."
+        if HAS_STREAMLIT:
+            st.warning(msg)
+        else:
+            print(msg)
+        return []
+
+    return classifications
+
+# Cache the function only if Streamlit is available
+if HAS_STREAMLIT:
+    load_commodity_classifications = st.cache_data(ttl=300)(load_commodity_classifications)
+
+def save_commodity_classifications(classifications: List[Dict[str, Any]]) -> bool:
+    """
+    Save commodity classifications to MongoDB (replaces all existing data)
+
+    Parameters:
+    - classifications: List of classification dictionaries
+      Each dict should have: {"item": str, "sector": str, "group": str, "region": str}
+
+    Returns:
+    - bool: True if successful, False otherwise
+    """
+    try:
+        db = get_database()
+        collection = db["commodity_classification"]
+
+        # Clear existing data
+        collection.delete_many({})
+
+        # Insert new data
+        if classifications:
+            collection.insert_many(classifications)
+
+        # Create index on item for faster lookups
+        collection.create_index("item", unique=True)
+
+        # Clear the cache so new data is loaded (only if using Streamlit)
+        if HAS_STREAMLIT and hasattr(load_commodity_classifications, 'clear'):
+            load_commodity_classifications.clear()
+
+        return True
+    except Exception as e:
+        msg = f"Error saving commodity classifications to MongoDB: {e}"
+        if HAS_STREAMLIT:
+            st.error(msg)
+        else:
+            print(msg)
+        return False
