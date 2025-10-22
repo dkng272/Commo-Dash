@@ -24,14 +24,17 @@ DEFAULT_TEMPERATURE = 1.0
 
 
 def load_commodity_groups():
-    """Load unique commodity groups from commo_list.xlsx"""
+    """Load unique commodity groups from MongoDB"""
     try:
-        commo_file = os.path.join(parent_dir, 'commo_list.xlsx')
-        df = pd.read_excel(commo_file)
+        # Import classification loader
+        sys.path.insert(0, parent_dir)
+        from classification_loader import get_classification_df
+
+        df = get_classification_df()
         groups = df['Group'].dropna().unique().tolist()
-        return groups
+        return sorted(groups)
     except Exception as e:
-        print(f"⚠ Could not load commodity groups: {e}")
+        print(f"⚠ Could not load commodity groups from MongoDB: {e}")
         return [
             "Oil", "Crack Spread", "Gas/LNG", "Coal",
             "Urea", "NPK", "DAP", "Caustic Soda", "Yellow P4", "P4 Rock",

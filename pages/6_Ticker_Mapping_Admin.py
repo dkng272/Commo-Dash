@@ -9,6 +9,8 @@ from pathlib import Path
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
+from classification_loader import get_classification_df
+
 st.set_page_config(layout="wide", page_title="Ticker Mapping Admin")
 
 # Force light theme
@@ -27,22 +29,15 @@ st.markdown("""
 st.title('Ticker Mapping Administration')
 st.markdown("*Edit ticker input/output mappings with validated commodity data*")
 
-# File paths
-COMMO_LIST_PATH = 'commo_list.xlsx'
-MAPPING_JSON_PATH = 'ticker_mappings_final.json'
-
 # ===== Helper Functions =====
 
-@st.cache_data
+@st.cache_data(ttl=60)
 def load_commo_list():
-    """Load commodity list as reference data"""
-    df = pd.read_excel(COMMO_LIST_PATH)
-    # Strip whitespace from all columns (consistency with data_cleaning.py)
-    df['Sector'] = df['Sector'].str.strip()
-    df['Group'] = df['Group'].str.strip()
-    df['Region'] = df['Region'].str.strip()
-    df['Item'] = df['Item'].str.strip()
-    return df
+    """
+    Load commodity list from MongoDB (cached 60 seconds).
+    This ensures ticker mappings stay in sync with the latest commodity classifications.
+    """
+    return get_classification_df()
 
 @st.cache_data
 def get_unique_values(df):

@@ -36,6 +36,7 @@ Instructions:
 NOTE
 - PVC: Refers to all plastic products (PE, PP, etc.). Any news about plastics should be included under PVC.
 - Classify by shipping type — Container (SCFI, CCFI, WCI, TEU, FEU, Transpacific, Asia–Europe), Dry Bulk (BDI, Capesize, Panamax, Supramax, Handysize, iron ore, coal, grain, tonne-miles), and Liquids Shipping (aka Tankers) (BDTI, BCTI, VLCC, Suezmax, Aframax, LR, MR, crude, product tankers). Include mentions of freight rates, TCE, fleet growth, and demand-supply balance.
+- Products: refer to downstream refined products (gasoline, diesel, jet fuel, naphtha, fuel oil, etc.). Any news about refined products should be included under Products.
 
 REPORT:
 """
