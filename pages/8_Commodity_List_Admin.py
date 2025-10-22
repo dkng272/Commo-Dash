@@ -7,6 +7,10 @@ import os
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
+# Import MongoDB and SQL utilities
+from mongodb_utils import load_commodity_classifications, save_commodity_classifications
+from sql_connection import fetch_all_commodity_data
+
 st.set_page_config(layout="wide", page_title="Commodity List Admin")
 
 # Force light theme
@@ -31,7 +35,6 @@ st.markdown("*Manage commodity classifications (Item → Sector/Group/Region)*")
 def load_sql_items():
     """Load all unique commodity names from SQL"""
     try:
-        from sql_connection import fetch_all_commodity_data
         df = fetch_all_commodity_data(start_date='2024-01-01', parallel=True)
         if 'Name' in df.columns:
             return sorted(df['Name'].unique().tolist())
@@ -42,13 +45,10 @@ def load_sql_items():
 
 def load_classifications():
     """Load commodity classifications from MongoDB"""
-    from mongodb_utils import load_commodity_classifications
     return load_commodity_classifications()
 
 def save_classifications(classifications):
     """Save commodity classifications to MongoDB"""
-    from mongodb_utils import save_commodity_classifications
-
     success = save_commodity_classifications(classifications)
     if success:
         st.success("✅ Classifications saved successfully to MongoDB!")
