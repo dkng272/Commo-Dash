@@ -108,6 +108,8 @@ if 'working_classification' not in st.session_state:
     st.session_state.working_classification = None
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = 0  # 0 = View All, 1 = Edit/Add, 2 = Unmapped
+if 'refresh_key' not in st.session_state:
+    st.session_state.refresh_key = 0
 
 # ===== Sidebar - Statistics & Unmapped Items =====
 
@@ -133,7 +135,7 @@ if selected_tab == "📋 View All":
 
     if not df_classifications.empty:
         # Add search filter
-        search_term = st.text_input("🔍 Search items", placeholder="Type to filter...")
+        search_term = st.text_input("🔍 Search items", placeholder="Type to filter...", key=f"search_{st.session_state.refresh_key}")
 
         if search_term:
             filtered_df = df_classifications[
@@ -167,15 +169,22 @@ if selected_tab == "📋 View All":
 elif selected_tab == "✏️ Edit/Add Item":
     st.subheader("Edit or Add Individual Item")
 
-    mode = st.radio("Mode", ["Edit Existing Item", "Add New Item"], horizontal=True)
+    mode = st.radio("Mode", ["Edit Existing Item", "Add New Item"], horizontal=True, key=f"mode_{st.session_state.refresh_key}")
 
     if mode == "Edit Existing Item":
         existing_items = sorted(df_classifications['Item'].tolist())
 
         if existing_items:
+            # Determine default index from session state
+            default_index = 0
+            if st.session_state.selected_item and st.session_state.selected_item in existing_items:
+                default_index = existing_items.index(st.session_state.selected_item) + 1  # +1 for empty option
+
             selected_item = st.selectbox(
                 "Select Item to Edit",
-                options=[""] + existing_items
+                options=[""] + existing_items,
+                index=default_index,
+                key=f"select_item_{st.session_state.refresh_key}"
             )
 
             if selected_item:
@@ -199,13 +208,14 @@ elif selected_tab == "✏️ Edit/Add Item":
 
                     # Rename item option
                     st.markdown("**Rename Item (optional)**")
-                    rename_item = st.checkbox("Rename this item to match SQL name", key="rename_checkbox")
+                    rename_item = st.checkbox("Rename this item to match SQL name", key=f"rename_checkbox_{st.session_state.refresh_key}")
 
                     if rename_item:
                         new_item_name_selected = st.selectbox(
                             "Select SQL item name",
                             options=[""] + sql_items,
-                            help="Choose the correct name from SQL database"
+                            help="Choose the correct name from SQL database",
+                            key=f"rename_select_{st.session_state.refresh_key}"
                         )
                         if new_item_name_selected:
                             st.info(f"Will rename '{selected_item}' → '{new_item_name_selected}'")
@@ -219,55 +229,61 @@ elif selected_tab == "✏️ Edit/Add Item":
 
                     # Sector selector
                     current_sector = current.get('sector', '')
-
-                    new_sector_input = st.text_input(
-                        "Sector (type new or select below)",
-                        value=current_sector,
-                        key="sector_text"
+                    st.markdown("**Sector**")
+                    sector_mode = st.radio(
+                        "Sector input mode",
+                        ["Select existing", "Type new"],
+                        horizontal=True,
+                        key=f"sector_mode_{st.session_state.refresh_key}",
+                        label_visibility="collapsed"
                     )
 
-                    if unique_sectors:
-                        sector_options = [""] + unique_sectors
+                    if sector_mode == "Select existing" and unique_sectors:
+                        sector_options = unique_sectors
                         sector_idx = sector_options.index(current_sector) if current_sector in sector_options else 0
-                        selected_existing_sector = st.selectbox(
-                            "Or select existing sector",
+                        new_sector = st.selectbox(
+                            "Select sector",
                             options=sector_options,
                             index=sector_idx,
-                            key="sector_select"
+                            key=f"sector_select_{st.session_state.refresh_key}",
+                            label_visibility="collapsed"
                         )
-                        # Use selectbox value only if explicitly selected (not empty and different from current)
-                        if selected_existing_sector and selected_existing_sector != current_sector:
-                            new_sector = selected_existing_sector
-                        else:
-                            new_sector = new_sector_input
                     else:
-                        new_sector = new_sector_input
+                        new_sector = st.text_input(
+                            "Type sector",
+                            value=current_sector,
+                            key=f"sector_text_{st.session_state.refresh_key}",
+                            label_visibility="collapsed"
+                        )
 
                     # Group selector
                     current_group = current.get('group', '')
-
-                    new_group_input = st.text_input(
-                        "Group (type new or select below)",
-                        value=current_group,
-                        key="group_text"
+                    st.markdown("**Group**")
+                    group_mode = st.radio(
+                        "Group input mode",
+                        ["Select existing", "Type new"],
+                        horizontal=True,
+                        key=f"group_mode_{st.session_state.refresh_key}",
+                        label_visibility="collapsed"
                     )
 
-                    if unique_groups:
-                        group_options = [""] + unique_groups
+                    if group_mode == "Select existing" and unique_groups:
+                        group_options = unique_groups
                         group_idx = group_options.index(current_group) if current_group in group_options else 0
-                        selected_existing_group = st.selectbox(
-                            "Or select existing group",
+                        new_group = st.selectbox(
+                            "Select group",
                             options=group_options,
                             index=group_idx,
-                            key="group_select"
+                            key=f"group_select_{st.session_state.refresh_key}",
+                            label_visibility="collapsed"
                         )
-                        # Use selectbox value only if explicitly selected (not empty and different from current)
-                        if selected_existing_group and selected_existing_group != current_group:
-                            new_group = selected_existing_group
-                        else:
-                            new_group = new_group_input
                     else:
-                        new_group = new_group_input
+                        new_group = st.text_input(
+                            "Type group",
+                            value=current_group,
+                            key=f"group_text_{st.session_state.refresh_key}",
+                            label_visibility="collapsed"
+                        )
 
                 with col2:
                     st.write("")
@@ -275,29 +291,32 @@ elif selected_tab == "✏️ Edit/Add Item":
 
                     # Region selector
                     current_region = current.get('region', '')
-
-                    new_region_input = st.text_input(
-                        "Region (type new or select below)",
-                        value=current_region,
-                        key="region_text"
+                    st.markdown("**Region**")
+                    region_mode = st.radio(
+                        "Region input mode",
+                        ["Select existing", "Type new"],
+                        horizontal=True,
+                        key=f"region_mode_{st.session_state.refresh_key}",
+                        label_visibility="collapsed"
                     )
 
-                    if unique_regions:
-                        region_options = [""] + unique_regions
+                    if region_mode == "Select existing" and unique_regions:
+                        region_options = unique_regions
                         region_idx = region_options.index(current_region) if current_region in region_options else 0
-                        selected_existing_region = st.selectbox(
-                            "Or select existing region",
+                        new_region = st.selectbox(
+                            "Select region",
                             options=region_options,
                             index=region_idx,
-                            key="region_select"
+                            key=f"region_select_{st.session_state.refresh_key}",
+                            label_visibility="collapsed"
                         )
-                        # Use selectbox value only if explicitly selected (not empty and different from current)
-                        if selected_existing_region and selected_existing_region != current_region:
-                            new_region = selected_existing_region
-                        else:
-                            new_region = new_region_input
                     else:
-                        new_region = new_region_input
+                        new_region = st.text_input(
+                            "Type region",
+                            value=current_region,
+                            key=f"region_text_{st.session_state.refresh_key}",
+                            label_visibility="collapsed"
+                        )
 
                 st.divider()
 
@@ -317,6 +336,7 @@ elif selected_tab == "✏️ Edit/Add Item":
                                 'region': new_region
                             }
                             st.session_state.active_tab = 1  # Stay on Edit/Add tab
+                            st.session_state.refresh_key += 1  # Force refresh
                             save_classifications(classifications)
                             st.rerun()
 
@@ -324,8 +344,9 @@ elif selected_tab == "✏️ Edit/Add Item":
                     if st.button("🗑️ Delete Item", type="secondary", use_container_width=True):
                         classifications.pop(idx)
                         st.session_state.active_tab = 1  # Stay on Edit/Add tab
-                        save_classifications(classifications)
                         st.session_state.selected_item = None
+                        st.session_state.refresh_key += 1  # Force refresh
+                        save_classifications(classifications)
                         st.rerun()
 
         else:
@@ -334,7 +355,7 @@ elif selected_tab == "✏️ Edit/Add Item":
     else:  # Add New Item
         st.markdown("**Add New Commodity Classification**")
 
-        new_item = st.text_input("Item Name", placeholder="e.g., Urea Vietnam")
+        new_item = st.text_input("Item Name", placeholder="e.g., Urea Vietnam", key=f"new_item_text_{st.session_state.refresh_key}")
 
         if new_item:
             # Check if already exists
@@ -345,29 +366,47 @@ elif selected_tab == "✏️ Edit/Add Item":
 
                 with col1:
                     # Sector
-                    new_sector_input = st.text_input("Sector (type new or select below)", key="new_sector_text")
-                    if unique_sectors:
-                        selected_sector = st.selectbox("Or select existing sector", [""] + unique_sectors, key="new_sector_select")
-                        new_sector = selected_sector if selected_sector else new_sector_input
+                    st.markdown("**Sector**")
+                    sector_mode = st.radio(
+                        "Sector mode",
+                        ["Select existing", "Type new"],
+                        horizontal=True,
+                        key=f"new_sector_mode_{st.session_state.refresh_key}",
+                        label_visibility="collapsed"
+                    )
+                    if sector_mode == "Select existing" and unique_sectors:
+                        new_sector = st.selectbox("Select", unique_sectors, key=f"new_sector_select_{st.session_state.refresh_key}", label_visibility="collapsed")
                     else:
-                        new_sector = new_sector_input
+                        new_sector = st.text_input("Type", key=f"new_sector_text_{st.session_state.refresh_key}", label_visibility="collapsed")
 
                     # Group
-                    new_group_input = st.text_input("Group (type new or select below)", key="new_group_text")
-                    if unique_groups:
-                        selected_group = st.selectbox("Or select existing group", [""] + unique_groups, key="new_group_select")
-                        new_group = selected_group if selected_group else new_group_input
+                    st.markdown("**Group**")
+                    group_mode = st.radio(
+                        "Group mode",
+                        ["Select existing", "Type new"],
+                        horizontal=True,
+                        key=f"new_group_mode_{st.session_state.refresh_key}",
+                        label_visibility="collapsed"
+                    )
+                    if group_mode == "Select existing" and unique_groups:
+                        new_group = st.selectbox("Select", unique_groups, key=f"new_group_select_{st.session_state.refresh_key}", label_visibility="collapsed")
                     else:
-                        new_group = new_group_input
+                        new_group = st.text_input("Type", key=f"new_group_text_{st.session_state.refresh_key}", label_visibility="collapsed")
 
                 with col2:
                     # Region
-                    new_region_input = st.text_input("Region (type new or select below)", key="new_region_text")
-                    if unique_regions:
-                        selected_region = st.selectbox("Or select existing region", [""] + unique_regions, key="new_region_select")
-                        new_region = selected_region if selected_region else new_region_input
+                    st.markdown("**Region**")
+                    region_mode = st.radio(
+                        "Region mode",
+                        ["Select existing", "Type new"],
+                        horizontal=True,
+                        key=f"new_region_mode_{st.session_state.refresh_key}",
+                        label_visibility="collapsed"
+                    )
+                    if region_mode == "Select existing" and unique_regions:
+                        new_region = st.selectbox("Select", unique_regions, key=f"new_region_select_{st.session_state.refresh_key}", label_visibility="collapsed")
                     else:
-                        new_region = new_region_input
+                        new_region = st.text_input("Type", key=f"new_region_text_{st.session_state.refresh_key}", label_visibility="collapsed")
 
                 st.divider()
 
@@ -383,6 +422,7 @@ elif selected_tab == "✏️ Edit/Add Item":
                             'region': new_region
                         })
                         st.session_state.active_tab = 1  # Stay on Edit/Add tab
+                        st.session_state.refresh_key += 1  # Force refresh
                         save_classifications(classifications)
                         st.rerun()
 
@@ -399,7 +439,8 @@ elif selected_tab == "🆕 Add Unmapped Items":
 
         selected_unmapped = st.selectbox(
             "Select Unmapped Item",
-            options=[""] + unmapped_items
+            options=[""] + unmapped_items,
+            key=f"select_unmapped_{st.session_state.refresh_key}"
         )
 
         if selected_unmapped:
@@ -409,29 +450,47 @@ elif selected_tab == "🆕 Add Unmapped Items":
 
             with col1:
                 # Sector
-                batch_sector_input = st.text_input("Sector (type new or select below)", key="batch_sector")
-                if unique_sectors:
-                    sel_sector = st.selectbox("Or select existing sector", [""] + unique_sectors, key="batch_sel_sector")
-                    batch_sector = sel_sector if sel_sector else batch_sector_input
+                st.markdown("**Sector**")
+                sector_mode = st.radio(
+                    "Batch sector mode",
+                    ["Select existing", "Type new"],
+                    horizontal=True,
+                    key=f"batch_sector_mode_{st.session_state.refresh_key}",
+                    label_visibility="collapsed"
+                )
+                if sector_mode == "Select existing" and unique_sectors:
+                    batch_sector = st.selectbox("Select", unique_sectors, key=f"batch_sel_sector_{st.session_state.refresh_key}", label_visibility="collapsed")
                 else:
-                    batch_sector = batch_sector_input
+                    batch_sector = st.text_input("Type", key=f"batch_sector_{st.session_state.refresh_key}", label_visibility="collapsed")
 
                 # Group
-                batch_group_input = st.text_input("Group (type new or select below)", key="batch_group")
-                if unique_groups:
-                    sel_group = st.selectbox("Or select existing group", [""] + unique_groups, key="batch_sel_group")
-                    batch_group = sel_group if sel_group else batch_group_input
+                st.markdown("**Group**")
+                group_mode = st.radio(
+                    "Batch group mode",
+                    ["Select existing", "Type new"],
+                    horizontal=True,
+                    key=f"batch_group_mode_{st.session_state.refresh_key}",
+                    label_visibility="collapsed"
+                )
+                if group_mode == "Select existing" and unique_groups:
+                    batch_group = st.selectbox("Select", unique_groups, key=f"batch_sel_group_{st.session_state.refresh_key}", label_visibility="collapsed")
                 else:
-                    batch_group = batch_group_input
+                    batch_group = st.text_input("Type", key=f"batch_group_{st.session_state.refresh_key}", label_visibility="collapsed")
 
             with col2:
                 # Region
-                batch_region_input = st.text_input("Region (type new or select below)", key="batch_region")
-                if unique_regions:
-                    sel_region = st.selectbox("Or select existing region", [""] + unique_regions, key="batch_sel_region")
-                    batch_region = sel_region if sel_region else batch_region_input
+                st.markdown("**Region**")
+                region_mode = st.radio(
+                    "Batch region mode",
+                    ["Select existing", "Type new"],
+                    horizontal=True,
+                    key=f"batch_region_mode_{st.session_state.refresh_key}",
+                    label_visibility="collapsed"
+                )
+                if region_mode == "Select existing" and unique_regions:
+                    batch_region = st.selectbox("Select", unique_regions, key=f"batch_sel_region_{st.session_state.refresh_key}", label_visibility="collapsed")
                 else:
-                    batch_region = batch_region_input
+                    batch_region = st.text_input("Type", key=f"batch_region_{st.session_state.refresh_key}", label_visibility="collapsed")
 
             if st.button("✅ Add This Classification", type="primary"):
                 if not batch_sector or not batch_group or not batch_region:
@@ -444,6 +503,7 @@ elif selected_tab == "🆕 Add Unmapped Items":
                         'region': batch_region
                     })
                     st.session_state.active_tab = 2  # Stay on Add Unmapped Items tab
+                    st.session_state.refresh_key += 1  # Force refresh
                     save_classifications(classifications)
                     st.success(f"✅ Added classification for '{selected_unmapped}'")
                     st.rerun()
