@@ -12,18 +12,35 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 from commo_dashboard import create_equal_weight_index, create_regional_indexes
 from ssi_api import fetch_historical_price
-from classification_loader import load_sql_data_with_classification
+from classification_loader import load_sql_data_raw, apply_classification
 
 # Global start date for all data on this page
 GLOBAL_START_DATE = '2024-01-01'
 
 # Load data with dynamic classification
 @st.cache_data(ttl=3600)
+def load_raw_sql_data():
+    """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
+    return load_sql_data_raw(start_date=GLOBAL_START_DATE)
+
 def load_data():
-    """Load commodity price data from SQL Server with classification (cached 1 hour)."""
-    df_raw = load_sql_data_with_classification(start_date=GLOBAL_START_DATE)
+    """
+    Load commodity price data with FRESH classification.
+
+    Two-layer caching:
+    1. SQL data cached for 1 hour (expensive)
+    2. Classification applied fresh each time (uses 60s cached classifications from MongoDB)
+
+    This allows classification changes to appear within ~60 seconds without re-querying SQL.
+    """
+    # Get cached raw SQL data (1 hour cache)
+    df_raw = load_raw_sql_data()
+
+    # Apply FRESH classification (MongoDB cached 60s, re-applied every page load)
+    df_classified = apply_classification(df_raw)
+
     # Filter out items without classification
-    df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
+    df = df_classified.dropna(subset=['Group', 'Region', 'Sector'])
     return df
 
 @st.cache_data

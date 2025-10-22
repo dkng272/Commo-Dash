@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from classification_loader import load_sql_data_with_classification, get_classification_df
+from classification_loader import load_sql_data_raw, apply_classification, get_classification_df
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Individual Item Viewer")
 
@@ -23,12 +23,28 @@ st.title("📊 Commodity Viewer")
 
 # Load data from SQL
 @st.cache_data(ttl=3600)
+def load_raw_sql_data():
+    """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
+    return load_sql_data_raw(start_date='2024-01-01')
+
 def load_data():
-    """Load commodity price data from SQL Server with classification (cached 1 hour)."""
-    df_raw = load_sql_data_with_classification(start_date='2024-01-01')
+    """
+    Load commodity price data with FRESH classification.
+
+    Two-layer caching:
+    1. SQL data cached for 1 hour (expensive)
+    2. Classification applied fresh each time (uses 60s cached classifications from MongoDB)
+
+    This allows classification changes to appear within ~60 seconds without re-querying SQL.
+    """
+    # Get cached raw SQL data (1 hour cache)
+    df_raw = load_raw_sql_data()
+
+    # Apply FRESH classification (MongoDB cached 60s, re-applied every page load)
+    df_classified = apply_classification(df_raw)
 
     # Filter out items without classification (internal calculated fields)
-    df = df_raw.dropna(subset=['Group', 'Region', 'Sector'])
+    df = df_classified.dropna(subset=['Group', 'Region', 'Sector'])
 
     return df
 

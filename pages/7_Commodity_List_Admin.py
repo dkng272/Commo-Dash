@@ -55,7 +55,7 @@ def save_classifications(classifications):
     """Save commodity classifications to MongoDB"""
     success = save_commodity_classifications(classifications)
     if success:
-        st.success("✅ Classifications saved successfully to MongoDB!")
+        st.success("✅ Classifications saved successfully!\n\nℹ️ Changes will appear on other pages within ~60 seconds (auto-refresh)")
         # Clear cache
         load_sql_items.clear()
     else:

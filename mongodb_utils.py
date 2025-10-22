@@ -187,8 +187,9 @@ def load_commodity_classifications() -> List[Dict[str, Any]]:
     return classifications
 
 # Cache the function only if Streamlit is available
+# Short TTL (60s) allows quick propagation of classification changes across pages
 if HAS_STREAMLIT:
-    load_commodity_classifications = st.cache_data(ttl=300)(load_commodity_classifications)
+    load_commodity_classifications = st.cache_data(ttl=60)(load_commodity_classifications)
 
 def save_commodity_classifications(classifications: List[Dict[str, Any]]) -> bool:
     """

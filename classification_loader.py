@@ -90,9 +90,40 @@ def load_data_with_classification(price_data_path='data/cleaned_data.csv'):
     return df
 
 
+def load_sql_data_raw(start_date='2024-01-01'):
+    """
+    Load RAW price data from SQL Server WITHOUT classification.
+    This is the expensive operation that should be cached for a long time.
+
+    Args:
+        start_date: Filter data from this date onwards (YYYY-MM-DD format)
+
+    Returns:
+        DataFrame with columns: Ticker, Date, Price, Name (NO Sector/Group/Region yet)
+    """
+    from sql_connection import fetch_all_commodity_data
+
+    # Fetch all commodity data from SQL (expensive operation)
+    df = fetch_all_commodity_data(start_date=start_date, parallel=True)
+
+    # Drop classification columns if they somehow exist
+    cols_to_drop = [col for col in ['Group', 'Region', 'Sector'] if col in df.columns]
+    if cols_to_drop:
+        df = df.drop(columns=cols_to_drop)
+
+    return df
+
+
 def load_sql_data_with_classification(start_date='2024-01-01'):
     """
-    Load price data from SQL Server and apply classification.
+    Load price data from SQL Server and apply FRESH classification.
+
+    This function:
+    1. Loads raw SQL data (cached separately for performance)
+    2. Applies current classification from MongoDB (refreshes quickly)
+
+    This design allows classification changes to appear within 60s
+    without re-fetching expensive SQL data.
 
     Args:
         start_date: Filter data from this date onwards (YYYY-MM-DD format)
@@ -100,12 +131,10 @@ def load_sql_data_with_classification(start_date='2024-01-01'):
     Returns:
         DataFrame with columns: Ticker, Date, Price, Name, Sector, Group, Region
     """
-    from sql_connection import fetch_all_commodity_data
+    # Get raw SQL data (this is cached separately by the caller)
+    df = load_sql_data_raw(start_date=start_date)
 
-    # Fetch all commodity data from SQL
-    df = fetch_all_commodity_data(start_date=start_date, parallel=True)
-
-    # Apply classification (Group, Region, Sector based on Ticker)
+    # Apply FRESH classification (re-applied every call, uses 60s cached classifications)
     df = apply_classification(df)
 
     return df
