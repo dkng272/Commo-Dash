@@ -56,36 +56,6 @@ def load_classification_data():
 df_all = load_data()
 classification_df = load_classification_data()
 
-# ============ TIMEFRAME SELECTOR (TOP OF SIDEBAR) ============
-st.sidebar.markdown("""
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
-        <h3 style="color: white; margin: 0; font-size: 16px;">Timeframe</h3>
-    </div>
-""", unsafe_allow_html=True)
-
-# Preset timeframe options
-timeframe_options = {
-    'YTD': f'{pd.Timestamp.now().year}-01-01',
-    '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
-    '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
-    'All Time': df_all['Date'].min().strftime('%Y-%m-%d') if not df_all.empty else '2020-01-01'
-}
-
-selected_timeframe = st.sidebar.radio(
-    "Select Timeframe",
-    options=list(timeframe_options.keys()),
-    index=0,
-    horizontal=False
-)
-
-# Filter data by selected timeframe
-start_date = pd.to_datetime(timeframe_options[selected_timeframe])
-df_all = df_all[df_all['Date'] >= start_date].copy()
-
-st.sidebar.caption(f"Data from: {start_date.strftime('%Y-%m-%d')}")
-st.sidebar.divider()
-
 # Time period aggregation function
 def aggregate_by_period(df, period='Daily'):
     """
@@ -218,179 +188,233 @@ st.sidebar.divider()
 st.sidebar.caption(f"📊 {len(available_items)} items available")
 st.sidebar.caption(f"📈 {len(selected_items)} items selected for chart")
 
-# ============ SUMMARY STATISTICS TABLE ============
-# Always show table for available items (filtered by sidebar filters)
-if len(available_items) > 0:
-    gradient_header("Summary Statistics")
+# ============ FRAGMENT: TIMEFRAME + TABLE + CHART ============
+@st.fragment
+def display_analysis(df_all, available_items, selected_items, classification_df):
+    """
+    Fragment for timeframe selection and data display.
+    Only this section re-runs when timeframe changes (not sidebar filters).
+    """
 
-    # Calculate statistics for each item in available_items
-    summary_rows = []
+    # ============ TIMEFRAME SELECTOR ============
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+            <h3 style="color: white; margin: 0; font-size: 16px;">Timeframe</h3>
+        </div>
+    """, unsafe_allow_html=True)
 
-    for item in available_items:
-        # Filter by Name column (not Ticker) since item comes from commo_list Item
-        item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
-        item_df = item_df.sort_values('Date')
+    # Preset timeframe options
+    timeframe_options = {
+        'YTD': f'{pd.Timestamp.now().year}-01-01',
+        '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+        '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
+        'All Time': df_all['Date'].min().strftime('%Y-%m-%d') if not df_all.empty else '2020-01-01'
+    }
 
-        if len(item_df) == 0:
-            continue
-
-        # Get latest value
-        latest_price = item_df.iloc[-1]['Price']
-
-        # Calculate % changes
-        changes = {}
-        for days, label in [(1, '1D'), (5, '1W'), (20, '1M'), (60, '3M'), (125, '6M'), (250, '1Y')]:
-            pct = calculate_pct_change(item_df, days)
-            changes[label] = pct
-
-        # Calculate YTD change
-        current_year = pd.Timestamp.now().year
-        year_start = pd.Timestamp(f'{current_year}-01-01')
-        ytd_data = item_df[item_df['Date'] >= year_start]
-        if len(ytd_data) > 1:
-            ytd_start_price = ytd_data.iloc[0]['Price']
-            ytd_latest_price = ytd_data.iloc[-1]['Price']
-            changes['YTD'] = ((ytd_latest_price / ytd_start_price) - 1) * 100
-        else:
-            changes['YTD'] = None
-
-        # Get group/region info
-        item_info = classification_df[classification_df['Item'] == item].iloc[0]
-
-        summary_rows.append({
-            'Item': item,
-            'Group': item_info['Group'],
-            'Region': item_info['Region'],
-            'Latest': latest_price,
-            '1D': changes['1D'],
-            '1W': changes['1W'],
-            '1M': changes['1M'],
-            'YTD': changes['YTD'],
-            '3M': changes['3M'],
-            '6M': changes['6M'],
-            '1Y': changes['1Y']
-        })
-
-    summary_df = pd.DataFrame(summary_rows)
-
-    # Format the dataframe for display
-    display_df = summary_df.copy()
-
-    # Format Latest column
-    display_df['Latest'] = display_df['Latest'].apply(lambda x: f"{x:.2f}")
-
-    # Format percentage columns with color coding
-    def color_pct(val):
-        """Apply color to percentage values"""
-        if pd.isna(val) or val is None:
-            return 'color: #6b7280'
-        elif val > 0:
-            return 'color: #22c55e; font-weight: 600'
-        elif val < 0:
-            return 'color: #ef4444; font-weight: 600'
-        else:
-            return 'color: #6b7280; font-weight: 600'
-
-    # Format percentage columns
-    for col in ['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y']:
-        display_df[col] = display_df[col].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A")
-
-    # Apply styling
-    styled_df = summary_df.style.format({
-        'Latest': '{:.2f}',
-        '1D': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-        '1W': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-        '1M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-        'YTD': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-        '3M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-        '6M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-        '1Y': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A"
-    }).map(color_pct, subset=['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y'])
-
-    # Display using st.dataframe for better rendering
-    st.dataframe(
-        styled_df,
-        use_container_width=True,
-        height=min(350, 40 + len(summary_df) * 30),
-        hide_index=True
-    )
-
-    # ============ CHART SECTION ============
-    # Only show chart if items are selected
-    if len(selected_items) > 0:
-        gradient_header("Price Chart")
-
-        # Chart settings
-        col_period, col_display = st.columns(2)
-
-        with col_period:
-            period = st.radio(
-                "Time Period",
-                options=['Daily', 'Weekly', 'Monthly', 'Quarterly'],
-                index=0,
-                horizontal=True
-            )
-
-        with col_display:
-            display_mode = st.radio(
-                "Display Mode",
-                options=['Normalized (Base 100)', 'Absolute Prices'],
-                index=0,
-                horizontal=True
-            )
-
-        # Prepare data for selected items
-        chart_data = []
-        for item in selected_items:
-            # Filter by Name column (not Ticker) since item comes from commo_list Item
-            item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
-            item_df = item_df.sort_values('Date')
-
-            # Aggregate by period
-            item_df_agg = aggregate_by_period(item_df, period)
-
-            # Normalize if needed
-            if display_mode == 'Normalized (Base 100)' and len(item_df_agg) > 0:
-                base_price = item_df_agg.iloc[0]['Price']
-                item_df_agg['Price'] = (item_df_agg['Price'] / base_price) * 100
-
-            chart_data.append((item, item_df_agg))
-
-        # Create chart
-        fig = go.Figure()
-
-        for item, item_df_agg in chart_data:
-            fig.add_trace(go.Scatter(
-                x=item_df_agg['Date'],
-                y=item_df_agg['Price'],
-                name=item,
-                mode='lines',
-                line=dict(width=2),
-                hovertemplate='<b>%{fullData.name}</b><br>Date: %{x}<br>Price: %{y:.2f}<extra></extra>'
-            ))
-
-        y_axis_title = 'Index (Base 100)' if display_mode == 'Normalized (Base 100)' else 'Price'
-
-        fig.update_layout(
-            title=f"{period} Price Movements - {len(selected_items)} Items",
-            xaxis_title="Date",
-            yaxis_title=y_axis_title,
-            hovermode='x unified',
-            height=500,
-            showlegend=True,
-            legend=dict(
-                orientation="v",
-                yanchor="top",
-                y=1,
-                xanchor="left",
-                x=1.02
-            ),
-            margin=dict(l=50, r=150, t=50, b=50)
+    col_tf1, col_tf2 = st.columns([2, 1])
+    with col_tf1:
+        selected_timeframe = st.radio(
+            "Select Timeframe",
+            options=list(timeframe_options.keys()),
+            index=0,
+            horizontal=True,
+            label_visibility="collapsed"
         )
 
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("💡 Select items from the sidebar to view price comparison chart")
+    # Calculate start date and lookback date (150 days before for calculations)
+    display_start_date = pd.to_datetime(timeframe_options[selected_timeframe])
+    calc_start_date = display_start_date - pd.DateOffset(days=150)
 
-else:
-    st.info("👆 Use sidebar filters to narrow down items, or view all items in the table")
+    with col_tf2:
+        st.caption(f"📅 Display from: {display_start_date.strftime('%Y-%m-%d')}")
+        st.caption(f"📊 Calculations from: {calc_start_date.strftime('%Y-%m-%d')}")
+
+    st.divider()
+
+    # Filter data with 150D lookback for calculations
+    df_calc = df_all[df_all['Date'] >= calc_start_date].copy()
+
+    # ============ SUMMARY STATISTICS TABLE ============
+    # Always show table for available items (filtered by sidebar filters)
+    if len(available_items) > 0:
+        gradient_header("Summary Statistics")
+
+        # Calculate statistics for each item in available_items
+        summary_rows = []
+
+        for item in available_items:
+            # Filter by Name column (not Ticker) since item comes from commo_list Item
+            # Use df_calc (with 150D lookback) for calculations
+            item_df = df_calc[df_calc['Name'] == item][['Date', 'Price']].copy()
+            item_df = item_df.sort_values('Date')
+
+            if len(item_df) == 0:
+                continue
+
+            # Get latest value
+            latest_price = item_df.iloc[-1]['Price']
+
+            # Calculate % changes
+            changes = {}
+            for days, label in [(1, '1D'), (5, '1W'), (20, '1M'), (60, '3M'), (125, '6M'), (250, '1Y')]:
+                pct = calculate_pct_change(item_df, days)
+                changes[label] = pct
+
+            # Calculate YTD change
+            current_year = pd.Timestamp.now().year
+            year_start = pd.Timestamp(f'{current_year}-01-01')
+            ytd_data = item_df[item_df['Date'] >= year_start]
+            if len(ytd_data) > 1:
+                ytd_start_price = ytd_data.iloc[0]['Price']
+                ytd_latest_price = ytd_data.iloc[-1]['Price']
+                changes['YTD'] = ((ytd_latest_price / ytd_start_price) - 1) * 100
+            else:
+                changes['YTD'] = None
+
+            # Get group/region info
+            item_info = classification_df[classification_df['Item'] == item].iloc[0]
+
+            summary_rows.append({
+                'Item': item,
+                'Group': item_info['Group'],
+                'Region': item_info['Region'],
+                'Latest': latest_price,
+                '1D': changes['1D'],
+                '1W': changes['1W'],
+                '1M': changes['1M'],
+                'YTD': changes['YTD'],
+                '3M': changes['3M'],
+                '6M': changes['6M'],
+                '1Y': changes['1Y']
+            })
+
+        summary_df = pd.DataFrame(summary_rows)
+
+        # Format the dataframe for display
+        display_df = summary_df.copy()
+
+        # Format Latest column
+        display_df['Latest'] = display_df['Latest'].apply(lambda x: f"{x:.2f}")
+
+        # Format percentage columns with color coding
+        def color_pct(val):
+            """Apply color to percentage values"""
+            if pd.isna(val) or val is None:
+                return 'color: #6b7280'
+            elif val > 0:
+                return 'color: #22c55e; font-weight: 600'
+            elif val < 0:
+                return 'color: #ef4444; font-weight: 600'
+            else:
+                return 'color: #6b7280; font-weight: 600'
+
+        # Format percentage columns
+        for col in ['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y']:
+            display_df[col] = display_df[col].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A")
+
+        # Apply styling
+        styled_df = summary_df.style.format({
+            'Latest': '{:.2f}',
+            '1D': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+            '1W': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+            '1M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+            'YTD': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+            '3M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+            '6M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+            '1Y': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A"
+        }).map(color_pct, subset=['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y'])
+
+        # Display using st.dataframe for better rendering
+        st.dataframe(
+            styled_df,
+            use_container_width=True,
+            height=min(350, 40 + len(summary_df) * 30),
+            hide_index=True
+        )
+
+        # ============ CHART SECTION ============
+        # Only show chart if items are selected
+        if len(selected_items) > 0:
+            gradient_header("Price Chart")
+
+            # Chart settings
+            col_period, col_display = st.columns(2)
+
+            with col_period:
+                period = st.radio(
+                    "Time Period",
+                    options=['Daily', 'Weekly', 'Monthly', 'Quarterly'],
+                    index=0,
+                    horizontal=True
+                )
+
+            with col_display:
+                display_mode = st.radio(
+                    "Display Mode",
+                    options=['Normalized (Base 100)', 'Absolute Prices'],
+                    index=0,
+                    horizontal=True
+                )
+
+            # Prepare data for selected items
+            # Filter for display timeframe only (not calc window)
+            df_display = df_calc[df_calc['Date'] >= display_start_date].copy()
+
+            chart_data = []
+            for item in selected_items:
+                # Filter by Name column (not Ticker) since item comes from commo_list Item
+                item_df = df_display[df_display['Name'] == item][['Date', 'Price']].copy()
+                item_df = item_df.sort_values('Date')
+
+                # Aggregate by period
+                item_df_agg = aggregate_by_period(item_df, period)
+
+                # Normalize if needed
+                if display_mode == 'Normalized (Base 100)' and len(item_df_agg) > 0:
+                    base_price = item_df_agg.iloc[0]['Price']
+                    item_df_agg['Price'] = (item_df_agg['Price'] / base_price) * 100
+
+                chart_data.append((item, item_df_agg))
+
+            # Create chart
+            fig = go.Figure()
+
+            for item, item_df_agg in chart_data:
+                fig.add_trace(go.Scatter(
+                    x=item_df_agg['Date'],
+                    y=item_df_agg['Price'],
+                    name=item,
+                    mode='lines',
+                    line=dict(width=2),
+                    hovertemplate='<b>%{fullData.name}</b><br>Date: %{x}<br>Price: %{y:.2f}<extra></extra>'
+                ))
+
+            y_axis_title = 'Index (Base 100)' if display_mode == 'Normalized (Base 100)' else 'Price'
+
+            fig.update_layout(
+                title=f"{period} Price Movements - {len(selected_items)} Items",
+                xaxis_title="Date",
+                yaxis_title=y_axis_title,
+                hovermode='x unified',
+                height=500,
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="top",
+                    y=1,
+                    xanchor="left",
+                    x=1.02
+                ),
+                margin=dict(l=50, r=150, t=50, b=50)
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("💡 Select items from the sidebar to view price comparison chart")
+
+    else:
+        st.info("👆 Use sidebar filters to narrow down items, or view all items in the table")
+
+# Call the fragment
+display_analysis(df_all, available_items, selected_items, classification_df)
