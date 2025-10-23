@@ -561,21 +561,17 @@ with tab1:
                 summary = catalyst.get('summary', 'No summary available')
                 timeline = catalyst.get('timeline', [])
 
-                # Build combined text: summary + timeline (no date here)
-                catalyst_text = summary
+                # Display summary (use st.text to avoid markdown interpretation)
+                st.text(summary)
 
+                # Display timeline if exists
                 if timeline:
-                    catalyst_text += "\n\nTimeline:\n"
+                    st.markdown("**Timeline:**")
                     for entry in timeline:
                         date = entry.get('date', 'Unknown')
                         event = entry.get('event', 'No description')
-                        catalyst_text += f"\n• {date}: {event}\n"
-
-                # Display in scrollable container with selectable text
-                st.markdown(
-                    f'<div style="max-height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #f9fafb; font-family: monospace; white-space: pre-wrap;">{catalyst_text}</div>',
-                    unsafe_allow_html=True
-                )
+                        st.markdown(f"**{date}**:")
+                        st.text(event)  # Use st.text to avoid markdown interpretation
             else:
                 st.info(f"No catalyst news found for {selected_group}")
 
