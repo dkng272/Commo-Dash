@@ -21,11 +21,11 @@ st.markdown("""
 
 # Load data with dynamic classification
 @st.cache_data(ttl=3600)
-def load_raw_sql_data():
+def load_raw_sql_data(start_date='2024-01-01'):
     """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
-    return load_sql_data_raw()  # Fetch ALL available data, filter later
+    return load_sql_data_raw(start_date=start_date)
 
-def load_data():
+def load_data(start_date='2024-01-01'):
     """
     Load commodity price data with FRESH classification.
 
@@ -34,9 +34,12 @@ def load_data():
     2. Classification applied fresh each time (uses 60s cached classifications from MongoDB)
 
     This allows classification changes to appear within ~60 seconds without re-querying SQL.
+
+    Args:
+        start_date: Start date for data filtering (YYYY-MM-DD format)
     """
     # Get cached raw SQL data (1 hour cache)
-    df_raw = load_raw_sql_data()
+    df_raw = load_raw_sql_data(start_date)
 
     # Apply FRESH classification (MongoDB cached 60s, re-applied every page load)
     df_classified = apply_classification(df_raw)
@@ -230,39 +233,36 @@ def calculate_all_ticker_spreads(_df, _all_indexes, _regional_indexes, ticker_ma
 
     return pd.DataFrame(spread_data)
 
-# Load data
-df = load_data()
-
-# ============ TIMEFRAME SELECTOR (SIDEBAR) ============
+# ============ SIDEBAR DATE SELECTOR ============
 st.sidebar.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
-        <h3 style="color: white; margin: 0; font-size: 16px;">Timeframe</h3>
+        <h3 style="color: white; margin: 0; font-size: 16px;">Data Range</h3>
     </div>
 """, unsafe_allow_html=True)
 
-# Preset timeframe options
-timeframe_options = {
-    'YTD': f'{pd.Timestamp.now().year}-01-01',
-    '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
-    '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
-    'All Time': df['Date'].min().strftime('%Y-%m-%d') if not df.empty else '2020-01-01'
-}
+# Calculate max date (150 days before today to ensure 151 days of data)
+max_start_date = pd.Timestamp.now() - pd.DateOffset(days=150)
 
-selected_timeframe = st.sidebar.radio(
-    "Select Timeframe",
-    options=list(timeframe_options.keys()),
-    index=0,
-    horizontal=False
+selected_start_date = st.sidebar.date_input(
+    "Start Date",
+    value=pd.to_datetime('2024-01-01'),
+    min_value=pd.to_datetime('2020-01-01'),
+    max_value=max_start_date,
+    help="Start date for data. Max date ensures 151+ days for accurate 150D calculations."
 )
 
-# Filter data by selected timeframe
-start_date = pd.to_datetime(timeframe_options[selected_timeframe])
-df = df[df['Date'] >= start_date].copy()
+# Convert to string format
+start_date_str = selected_start_date.strftime('%Y-%m-%d')
 
-st.sidebar.caption(f"Data from: {start_date.strftime('%Y-%m-%d')}")
+# Calculate data range info
+days_from_start = (pd.Timestamp.now() - pd.to_datetime(selected_start_date)).days
+st.sidebar.caption(f"📅 Data range: {days_from_start} days (150D metrics available)")
 
-# Build indexes after filtering
+st.sidebar.divider()
+
+# Load data
+df = load_data(start_date=start_date_str)
 all_indexes, combined_df, regional_indexes, regional_combined_df, sector_indexes, sector_combined_df = build_indexes(df)
 
 # Streamlit Dashboard
