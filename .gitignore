@@ -57,13 +57,12 @@ news/*_converted.md
 # Keep consolidated file but ignore individual summaries
 !news/all_reports.json
 
-# X API
-x_api/tweets_*.json
-x_api/tweets_*_summary.txt
-
 # Claude
 claude_logs/*
 claude_summaries/*
 claude_reports/*
 claude.md
 SESSION_SUMMARY.md
+
+# Testing xai_API
+/xai_api/*

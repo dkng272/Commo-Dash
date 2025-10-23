@@ -188,115 +188,109 @@ st.sidebar.divider()
 st.sidebar.caption(f"📊 {len(available_items)} items available")
 st.sidebar.caption(f"📈 {len(selected_items)} items selected for chart")
 
-# ============ FRAGMENT: TIMEFRAME + TABLE + CHART ============
-@st.fragment
-def display_analysis(df_all, available_items, selected_items, classification_df):
-    """
-    Fragment for timeframe selection and data display.
-    Only this section re-runs when timeframe changes (not sidebar filters).
-    """
+# ============ SUMMARY STATISTICS TABLE ============
+# Always show table for available items (filtered by sidebar filters)
+# Table uses ALL available data to ensure accurate long-term metrics
+if len(available_items) > 0:
+    gradient_header("Summary Statistics")
 
-    # ============ SUMMARY STATISTICS TABLE ============
-    # Always show table for available items (filtered by sidebar filters)
-    # Table uses ALL available data to ensure accurate long-term metrics
-    if len(available_items) > 0:
-        gradient_header("Summary Statistics")
+    # Calculate statistics for each item in available_items
+    summary_rows = []
 
-        # Calculate statistics for each item in available_items
-        summary_rows = []
+    for item in available_items:
+        # Filter by Name column (not Ticker) since item comes from commo_list Item
+        # Use all available data for accurate metric calculations
+        item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
+        item_df = item_df.sort_values('Date')
 
-        for item in available_items:
-            # Filter by Name column (not Ticker) since item comes from commo_list Item
-            # Use all available data for accurate metric calculations
-            item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
-            item_df = item_df.sort_values('Date')
+        if len(item_df) == 0:
+            continue
 
-            if len(item_df) == 0:
-                continue
+        # Get latest value
+        latest_price = item_df.iloc[-1]['Price']
 
-            # Get latest value
-            latest_price = item_df.iloc[-1]['Price']
+        # Calculate % changes
+        changes = {}
+        for days, label in [(1, '1D'), (5, '1W'), (20, '1M'), (60, '3M'), (125, '6M'), (250, '1Y')]:
+            pct = calculate_pct_change(item_df, days)
+            changes[label] = pct
 
-            # Calculate % changes
-            changes = {}
-            for days, label in [(1, '1D'), (5, '1W'), (20, '1M'), (60, '3M'), (125, '6M'), (250, '1Y')]:
-                pct = calculate_pct_change(item_df, days)
-                changes[label] = pct
+        # Calculate YTD change
+        current_year = pd.Timestamp.now().year
+        year_start = pd.Timestamp(f'{current_year}-01-01')
+        ytd_data = item_df[item_df['Date'] >= year_start]
+        if len(ytd_data) > 1:
+            ytd_start_price = ytd_data.iloc[0]['Price']
+            ytd_latest_price = ytd_data.iloc[-1]['Price']
+            changes['YTD'] = ((ytd_latest_price / ytd_start_price) - 1) * 100
+        else:
+            changes['YTD'] = None
 
-            # Calculate YTD change
-            current_year = pd.Timestamp.now().year
-            year_start = pd.Timestamp(f'{current_year}-01-01')
-            ytd_data = item_df[item_df['Date'] >= year_start]
-            if len(ytd_data) > 1:
-                ytd_start_price = ytd_data.iloc[0]['Price']
-                ytd_latest_price = ytd_data.iloc[-1]['Price']
-                changes['YTD'] = ((ytd_latest_price / ytd_start_price) - 1) * 100
-            else:
-                changes['YTD'] = None
+        # Get group/region info
+        item_info = classification_df[classification_df['Item'] == item].iloc[0]
 
-            # Get group/region info
-            item_info = classification_df[classification_df['Item'] == item].iloc[0]
+        summary_rows.append({
+            'Item': item,
+            'Group': item_info['Group'],
+            'Region': item_info['Region'],
+            'Latest': latest_price,
+            '1D': changes['1D'],
+            '1W': changes['1W'],
+            '1M': changes['1M'],
+            'YTD': changes['YTD'],
+            '3M': changes['3M'],
+            '6M': changes['6M'],
+            '1Y': changes['1Y']
+        })
 
-            summary_rows.append({
-                'Item': item,
-                'Group': item_info['Group'],
-                'Region': item_info['Region'],
-                'Latest': latest_price,
-                '1D': changes['1D'],
-                '1W': changes['1W'],
-                '1M': changes['1M'],
-                'YTD': changes['YTD'],
-                '3M': changes['3M'],
-                '6M': changes['6M'],
-                '1Y': changes['1Y']
-            })
+    summary_df = pd.DataFrame(summary_rows)
 
-        summary_df = pd.DataFrame(summary_rows)
+    # Format the dataframe for display
+    display_df = summary_df.copy()
 
-        # Format the dataframe for display
-        display_df = summary_df.copy()
+    # Format Latest column
+    display_df['Latest'] = display_df['Latest'].apply(lambda x: f"{x:.2f}")
 
-        # Format Latest column
-        display_df['Latest'] = display_df['Latest'].apply(lambda x: f"{x:.2f}")
+    # Format percentage columns with color coding
+    def color_pct(val):
+        """Apply color to percentage values"""
+        if pd.isna(val) or val is None:
+            return 'color: #6b7280'
+        elif val > 0:
+            return 'color: #22c55e; font-weight: 600'
+        elif val < 0:
+            return 'color: #ef4444; font-weight: 600'
+        else:
+            return 'color: #6b7280; font-weight: 600'
 
-        # Format percentage columns with color coding
-        def color_pct(val):
-            """Apply color to percentage values"""
-            if pd.isna(val) or val is None:
-                return 'color: #6b7280'
-            elif val > 0:
-                return 'color: #22c55e; font-weight: 600'
-            elif val < 0:
-                return 'color: #ef4444; font-weight: 600'
-            else:
-                return 'color: #6b7280; font-weight: 600'
+    # Format percentage columns
+    for col in ['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y']:
+        display_df[col] = display_df[col].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A")
 
-        # Format percentage columns
-        for col in ['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y']:
-            display_df[col] = display_df[col].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A")
+    # Apply styling
+    styled_df = summary_df.style.format({
+        'Latest': '{:.2f}',
+        '1D': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        '1W': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        '1M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        'YTD': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        '3M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        '6M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        '1Y': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A"
+    }).map(color_pct, subset=['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y'])
 
-        # Apply styling
-        styled_df = summary_df.style.format({
-            'Latest': '{:.2f}',
-            '1D': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-            '1W': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-            '1M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-            'YTD': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-            '3M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-            '6M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
-            '1Y': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A"
-        }).map(color_pct, subset=['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y'])
+    # Display using st.dataframe for better rendering
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        height=min(350, 40 + len(summary_df) * 30),
+        hide_index=True
+    )
 
-        # Display using st.dataframe for better rendering
-        st.dataframe(
-            styled_df,
-            use_container_width=True,
-            height=min(350, 40 + len(summary_df) * 30),
-            hide_index=True
-        )
-
-        # ============ CHART SECTION ============
-        # Only show chart if items are selected
+    # ============ CHART SECTION WITH FRAGMENT ============
+    # Fragment wrapper - only chart reloads when controls change
+    @st.fragment
+    def display_price_chart(df_all, selected_items):
         if len(selected_items) > 0:
             gradient_header("Price Chart")
 
@@ -396,8 +390,8 @@ def display_analysis(df_all, available_items, selected_items, classification_df)
         else:
             st.info("💡 Select items from the sidebar to view price comparison chart")
 
-    else:
-        st.info("👆 Use sidebar filters to narrow down items, or view all items in the table")
+    # Call the chart fragment
+    display_price_chart(df_all, selected_items)
 
-# Call the fragment
-display_analysis(df_all, available_items, selected_items, classification_df)
+else:
+    st.info("👆 Use sidebar filters to narrow down items, or view all items in the table")
