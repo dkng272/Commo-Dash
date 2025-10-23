@@ -280,7 +280,7 @@ with col_update:
     """, unsafe_allow_html=True)
 
 # Load ticker mappings and catalyst functions from MongoDB
-from mongodb_utils import load_ticker_mappings, load_catalysts
+from mongodb_utils import load_ticker_mappings, load_catalysts, get_catalyst
 ticker_mapping = load_ticker_mappings()
 
 spreads_df = calculate_all_ticker_spreads(df, all_indexes, regional_indexes, ticker_mapping)
@@ -537,12 +537,50 @@ with tab1:
 
                 st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
 
-            # News section for selected group
+            # Catalyst section for selected group
             st.divider()
             st.markdown(f"""
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                             padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-                    <h3 style="color: white; margin: 0; font-size: 18px;">Latest News - {selected_group}</h3>
+                    <h3 style="color: white; margin: 0; font-size: 18px;">Latest News from X - {selected_group}</h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Get latest catalyst for this group
+            catalyst = get_catalyst(selected_group)
+
+            if catalyst:
+                import html
+                summary_escaped = html.escape(catalyst.get('summary', 'No summary available'))
+                search_date = catalyst.get('search_date', 'N/A')
+                timeline = catalyst.get('timeline', [])
+
+                # Display catalyst card
+                st.markdown(f"""
+                    <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 12px;">
+                        <div style="color: #6b7280; font-size: 12px; margin-bottom: 8px;">Last updated: {search_date}</div>
+                        <p style="margin: 0; color: #333; line-height: 1.6; font-size: 14px;">{summary_escaped}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                # Timeline in expander
+                if timeline:
+                    with st.expander(f"View Timeline ({len(timeline)} events)", expanded=False):
+                        for entry in timeline:
+                            date = entry.get('date', 'Unknown')
+                            event = entry.get('event', 'No description')
+                            st.markdown(f"**{date}**")
+                            st.text(event)
+                            st.markdown("---")
+            else:
+                st.info(f"No catalyst news found for {selected_group}")
+
+            # Reports section for selected group
+            st.divider()
+            st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+                    <h3 style="color: white; margin: 0; font-size: 18px;">Latest Reports - {selected_group}</h3>
                 </div>
             """, unsafe_allow_html=True)
 
@@ -565,7 +603,7 @@ with tab1:
                     unsafe_allow_html=True
                 )
             else:
-                st.info(f"No recent news found for {selected_group}")
+                st.info(f"No recent reports found for {selected_group}")
 
         else:
             st.info("No commodity groups available to display")
@@ -954,8 +992,8 @@ except Exception as e:
 
 st.divider()
 
-# Latest Market News - Collapsible
-with st.expander("Latest Market News - All Commodities", expanded=False):
+# Latest Market Reports - Collapsible
+with st.expander("Latest Market Reports - All Commodities", expanded=False):
     # Collect all news from all groups
     all_news = []
     for group in all_indexes.keys():
@@ -993,5 +1031,5 @@ with st.expander("Latest Market News - All Commodities", expanded=False):
         # Display the scrollable container with all cards
         st.markdown(all_cards_html, unsafe_allow_html=True)
     else:
-        st.info("No recent news available")
+        st.info("No recent reports available")
 
