@@ -10,8 +10,7 @@ Commodity price tracking and analysis system with Vietnamese stock ticker integr
 ```
 Commo Dash/
 ├── data/
-│   ├── cleaned_data.csv           # Main commodity price data (backup, migrating to SQL)
-│   └── commo_list.xlsx            # Commodity classification
+│   └── cleaned_data.csv           # Backup (data now from SQL Server)
 ├── pages/                          # Streamlit pages
 │   ├── 1_Price_Chart.py           # Individual commodity price viewer
 │   ├── 2_Group_Analysis.py        # Commodity group deep dive
@@ -19,19 +18,17 @@ Commo Dash/
 │   ├── 4_Reports_Summary.py       # Research reports browser
 │   ├── 5_Reports_Upload_Admin.py  # Upload PDFs to MongoDB
 │   ├── 6_Ticker_Mapping_Admin.py  # Ticker mapping editor (MongoDB)
-│   └── 7_SQL_Data_Test.py         # SQL connection test page (NEW)
+│   └── 7_Commodity_List_Admin.py  # Commodity classification editor (MongoDB)
 ├── news/
-│   ├── all_reports.json           # Consolidated research reports
 │   ├── reports/                   # PDF storage
 │   └── pdf_processor.py           # PDF processing script
 ├── Dashboard.py                    # Main dashboard (homepage)
-├── sql_connection.py              # SQL Server connection & data loading (NEW)
-├── mongodb_utils.py               # MongoDB connection & CRUD
+├── sql_connection.py              # SQL Server connection & data loading
+├── mongodb_utils.py               # MongoDB connection & CRUD operations
 ├── commo_dashboard.py             # Index creation functions
-├── classification_loader.py       # Dynamic classification loading
+├── classification_loader.py       # Dynamic classification loading (MongoDB)
 ├── ssi_api.py                     # Stock price API integration
-├── SQL_MIGRATION_PLAN.md          # Detailed SQL migration guide (NEW)
-└── ticker_mappings_final.json     # Backup (data now in MongoDB)
+└── migrate_commo_list_to_mongodb.py  # One-time migration script
 ```
 
 ---
@@ -39,13 +36,15 @@ Commo Dash/
 ## MongoDB Integration (Latest Update)
 
 ### Purpose
-Enable Ticker Mapping Admin page to work on Streamlit Cloud deployment by storing mappings in MongoDB instead of local JSON files.
+Enable dynamic data management on Streamlit Cloud by storing ticker mappings and commodity classifications in MongoDB instead of local files (JSON/Excel).
 
 ### Database Structure
 - **Database**: `commodity_dashboard`
-- **Collection**: `ticker_mappings`
-- **Documents**: 57 ticker mappings
+- **Collections**:
+  - `ticker_mappings` - Stock ticker input/output mappings (57 documents)
+  - `commodity_classification` - Commodity classification data (~100 items)
 
+### Collection 1: Ticker Mappings
 **Document Schema**:
 ```json
 {
@@ -69,11 +68,27 @@ Enable Ticker Mapping Admin page to work on Streamlit Cloud deployment by storin
 }
 ```
 
+### Collection 2: Commodity Classifications
+**Document Schema**:
+```json
+{
+  "item": "Ore 62",
+  "sector": "Steel Material",
+  "group": "Iron Ore",
+  "region": "China"
+}
+```
+- **Unique Index**: `item` field
+- **Purpose**: Maps commodity names to Sector/Group/Region hierarchy
+- **Admin Page**: pages/7_Commodity_List_Admin.py
+
 ### Implementation (`mongodb_utils.py`)
 
 **Key Functions**:
-- `load_ticker_mappings()` - Read from MongoDB (cached 5 min)
-- `save_ticker_mappings()` - Write to MongoDB (with cache clear)
+- `load_ticker_mappings()` - Read ticker mappings (cached 5 min)
+- `save_ticker_mappings()` - Write ticker mappings (with cache clear)
+- `load_commodity_classifications()` - Read classifications (cached 60 seconds)
+- `save_commodity_classifications()` - Write classifications (with cache clear)
 - `get_mongo_client()` - Connection management
 
 **Configuration**:
@@ -81,18 +96,51 @@ Enable Ticker Mapping Admin page to work on Streamlit Cloud deployment by storin
 - Cloud: Streamlit Cloud secrets with `MONGODB_URI`
 - Fallback: Warns if connection string not found
 
-**Files Updated**:
-- `Dashboard.py` - Loads from MongoDB
-- `pages/Ticker_Analysis.py` - Loads from MongoDB
-- `pages/Ticker_Mapping_Admin.py` - Read/write to MongoDB
-- `requirements.txt` - Added `pymongo>=4.6.0`
+**Files Using MongoDB**:
+- `Dashboard.py` - Loads ticker mappings + classifications
+- `pages/1_Price_Chart.py` - Loads classifications
+- `pages/2_Group_Analysis.py` - Loads classifications
+- `pages/3_Ticker_Analysis.py` - Loads ticker mappings + classifications
+- `pages/6_Ticker_Mapping_Admin.py` - CRUD for ticker mappings
+- `pages/7_Commodity_List_Admin.py` - CRUD for classifications
+- `classification_loader.py` - Central classification loading
+- `news/pdf_processor.py` - Loads commodity groups
 
 ### Workflow
-**Before (JSON file)**:
-1. Edit locally → Save to JSON → Commit → Push → Redeploy
+**Before (File-based)**:
+1. Edit Excel/JSON locally → Commit → Push → Redeploy
 
 **After (MongoDB)**:
-1. Edit on Admin page → Save to MongoDB → Changes live immediately ✅
+1. Edit on Admin page → Save to MongoDB → Changes live in ~60 seconds ✅
+
+### Two-Layer Caching Architecture
+**Problem**: Combined SQL data + classifications cached together → classification changes not visible until SQL cache expires (1 hour)
+
+**Solution**: Split caching into two layers
+```python
+# Layer 1: Raw SQL data (expensive - cached 1 hour)
+@st.cache_data(ttl=3600)
+def load_raw_sql_data():
+    return load_sql_data_raw(start_date='2024-01-01')
+
+# Layer 2: Fresh classification (cheap - NOT cached)
+def load_data():
+    df_raw = load_raw_sql_data()  # From cache
+    df = apply_classification(df_raw)  # Fresh, uses 60s cached classifications
+    return df
+```
+
+**Benefits**:
+- SQL queries cached 1 hour (expensive operation)
+- Classifications cached 60 seconds (cheap operation)
+- Combination re-applied fresh → classification changes visible in ~60 seconds
+- No need to re-fetch SQL data when classifications change
+
+**Pages Implementing Two-Layer Cache**:
+- `Dashboard.py`
+- `pages/1_Price_Chart.py`
+- `pages/2_Group_Analysis.py`
+- `pages/3_Ticker_Analysis.py`
 
 ---
 
@@ -133,6 +181,18 @@ Enable Ticker Mapping Admin page to work on Streamlit Cloud deployment by storin
   - Preview JSON before saving
 - **Storage**: MongoDB (works on cloud deployment)
 
+### 6. Commodity List Admin Page
+- **Features**:
+  - View all commodity classifications
+  - Edit existing items (Sector/Group/Region)
+  - Add new items (manual or from unmapped SQL items)
+  - Rename items to fix typos
+  - Radio toggle: Select existing or Type new
+  - Shows 22 unmapped SQL items for classification
+- **Storage**: MongoDB `commodity_classification` collection
+- **Refresh Key System**: Prevents state issues during edits
+- **UI**: Three-tab interface with session state management
+
 ---
 
 ## Index Creation Logic
@@ -163,21 +223,33 @@ def create_equal_weight_index(df, group_name, base_value=100):
 
 ## Data Schema
 
-### cleaned_data.csv
+### SQL Server Raw Data
 ```
-Date       | Ticker       | Price  | Group     | Region | Sector
-2024-01-01 | Ore 62       | 142.0  | Iron Ore  | China  | Steel Material
-2024-01-01 | HRC HPG      | 550    | HRC       | Vietnam| Steel
+Ticker  | Date       | Price  | Name
+ORE62   | 2024-01-01 | 142.0  | Ore 62
+HRCVN   | 2024-01-01 | 550    | HRC HPG
+```
+- **Source**: SQL Server commodity price tables
+- **No classifications**: Sector/Group/Region added by `classification_loader.py`
+- **Mapping Key**: `Name` column (NOT `Ticker`)
+
+### MongoDB Classification Data
+**Collection**: `commodity_classification`
+```json
+{
+  "item": "Ore 62",
+  "sector": "Steel Material",
+  "group": "Iron Ore",
+  "region": "China"
+}
 ```
 
 **Classification Hierarchy**: Sector → Group → Region → Item
 
-### commo_list.xlsx
-```
-Sector          | Group      | Region  | Item
-Steel Material  | Iron Ore   | China   | Ore 62
-Steel           | HRC        | Vietnam | HRC HPG
-```
+**Data Flow**:
+1. SQL returns: `Ticker`, `Date`, `Price`, `Name` (no classifications)
+2. `classification_loader.py` maps: `Name` → `item` in MongoDB → adds `Sector`, `Group`, `Region`
+3. Pages filter by: `df[df['Name'] == item]` where item comes from MongoDB
 
 ---
 
@@ -318,7 +390,36 @@ __pycache__/
 
 ## Recent Updates Summary
 
-### SQL Server Integration (Current Session)
+### Dynamic Commodity Classification System - Phase 1 (Latest Session)
+- ✅ **MongoDB Migration**: Migrated `commo_list.xlsx` to MongoDB `commodity_classification` collection
+- ✅ **Admin Page**: Created `pages/7_Commodity_List_Admin.py` with three-tab interface
+  - View All: Display all classifications in sortable table
+  - Edit/Add Item: Edit existing or add new items with radio toggle (Select/Type)
+  - Add Unmapped: Shows 22 unmapped SQL items for classification
+- ✅ **Rename Feature**: Allows renaming items to fix typos by selecting from SQL list
+- ✅ **Two-Layer Caching**: Split SQL data (1 hour cache) from classifications (60s cache)
+  - `load_raw_sql_data()` - Caches expensive SQL queries
+  - `apply_classification()` - Re-applies fresh classifications using 60s cached MongoDB data
+  - Classification changes visible in ~60 seconds without re-querying SQL
+- ✅ **Caching Updates**: Implemented two-layer caching in 4 main pages:
+  - `Dashboard.py`, `pages/1_Price_Chart.py`, `pages/2_Group_Analysis.py`, `pages/3_Ticker_Analysis.py`
+- ✅ **Excel Removal**: Removed all `commo_list.xlsx` references across codebase
+  - Updated `classification_loader.py` to load exclusively from MongoDB
+  - Removed Excel fallback per user request
+  - Updated `news/pdf_processor.py`, `news/pdf_processor_mongodb.py`, `data/data_cleaning.py`
+- ✅ **Ticker Mapping Sync**: Updated `pages/6_Ticker_Mapping_Admin.py` to load from MongoDB
+  - Changed from `pd.read_excel('commo_list.xlsx')` to `get_classification_df()`
+  - Ensures ticker mappings stay in sync with latest classifications
+- ✅ **UI/UX Improvements**:
+  - Radio button navigation to prevent tab jumping
+  - Refresh key system for proper state management (similar to Ticker Mapping Admin)
+  - Single input method: Either select existing OR type new (not both)
+- ✅ **Migration Script**: Created `migrate_commo_list_to_mongodb.py` for one-time data migration
+- ✅ **Documentation**: Created `CLASSIFICATION_REFRESH_GUIDE.md` documenting caching architecture
+
+**Phase 2 Deferred**: Calculated commodities (spreads, ratios, weighted baskets) - to be implemented later
+
+### SQL Server Integration (Previous Session)
 - ✅ **SQL Connection Module**: Created `sql_connection.py` for live data loading from SQL Server
 - ✅ **Data Source Migration**: Transitioning from CSV files to SQL Server as primary data source
 - ✅ **Parallel Loading**: Implemented ThreadPoolExecutor for concurrent sector loading (10-15s vs 30s)
@@ -328,7 +429,7 @@ __pycache__/
 - ✅ **Requirements Update**: Added `pymssql>=2.2.0` to requirements.txt
 - ✅ **Secrets Configuration**: Added `DB_AILAB_CONN` to `.streamlit/secrets.toml`
 - ✅ **Price Chart Migration**: Migrated `pages/1_Price_Chart.py` to use SQL data via `load_sql_data_with_classification()`
-- ✅ **Classification Fix**: Fixed mapping to use `Name` column (not `Ticker`) to match commo_list.xlsx Item column
+- ✅ **Classification Fix**: Fixed mapping to use `Name` column (not `Ticker`) to match MongoDB Item field
 - ✅ **Caching Strategy**: Implemented 1-hour cache (3600s) for daily data updates, shared across all pages
 
 #### SQL Data Architecture
@@ -340,14 +441,14 @@ __pycache__/
 
 **IMPORTANT - Column Naming Convention**:
 - **Ticker**: Short code from SQL (e.g., "ORE62", "HRCVN") - used internally
-- **Name**: Descriptive name from SQL (e.g., "Ore 62", "HRC HPG") - **THIS MAPS TO commo_list.xlsx Item column**
-- **Item**: Column in commo_list.xlsx that contains commodity names
-- **Mapping Rule**: Always use `df['Name']` (from SQL) to map to `commo_list['Item']`, NEVER use `df['Ticker']`
+- **Name**: Descriptive name from SQL (e.g., "Ore 62", "HRC HPG") - **THIS MAPS TO MongoDB Item field**
+- **Item**: Field in MongoDB `commodity_classification` collection
+- **Mapping Rule**: Always use `df['Name']` (from SQL) to map to MongoDB `item` field, NEVER use `df['Ticker']`
 
 **Data Flow**:
 1. SQL returns: Ticker, Date, Price, Name (no Sector/Group/Region yet)
-2. classification_loader maps: Name → Item in commo_list.xlsx → adds Sector, Group, Region
-3. Pages filter: `df[df['Name'] == item]` where item comes from commo_list.xlsx
+2. classification_loader maps: Name → Item in MongoDB → adds Sector, Group, Region
+3. Pages filter: `df[df['Name'] == item]` where item comes from MongoDB
 
 **Key Functions** (`sql_connection.py`):
 ```python
@@ -388,7 +489,7 @@ All 4 main pages now use SQL Server as primary data source with shared 1-hour ca
 **Key Changes Across All Pages**:
 1. Import: `load_data_with_classification` → `load_sql_data_with_classification`
 2. Caching: Added `@st.cache_data(ttl=3600)` for 1-hour cache
-3. Commodity filtering: Changed from `df['Ticker']` to `df['Name']` (matches commo_list.xlsx Item)
+3. Commodity filtering: Changed from `df['Ticker']` to `df['Name']` (matches MongoDB Item field)
 4. Stock tickers: Remain unchanged (ticker, selected_ticker for HPG, VNM, etc.)
 5. Data source: Removed CSV file path logic, now using `load_sql_data_with_classification(start_date='2024-01-01')`
 
@@ -400,12 +501,13 @@ All 4 main pages now use SQL Server as primary data source with shared 1-hour ca
 5. Consider migrating commo_dashboard.py functions to use Name column consistently
 
 **Key Lessons Learned**:
-1. **Column Mapping Rule**: Always use `df['Name']` (from SQL) to map to `commo_list['Item']`, NEVER use `df['Ticker']`
+1. **Column Mapping Rule**: Always use `df['Name']` (from SQL) to map to MongoDB `item` field, NEVER use `df['Ticker']`
 2. **Stock vs Commodity**: Stock tickers (HPG, VNM) use 'ticker'/'Ticker', commodity series use 'Name'
-3. **Data Flow**: SQL returns NO Sector/Group/Region - these are added by classification_loader
+3. **Data Flow**: SQL returns NO Sector/Group/Region - these are added by classification_loader from MongoDB
 4. **Test Data Confusion**: Test page excluded Textile by default - can cause confusion with row counts
 5. **Shared Cache**: Cache is shared across all pages - clear cache after code changes
-6. **MongoDB Integration**: Ticker mappings in MongoDB use commodity Names (not Ticker codes)
+6. **MongoDB Integration**: Both ticker mappings and classifications use commodity Names (not Ticker codes)
+7. **Two-Layer Caching**: Split expensive operations (SQL) from cheap operations (classification) for faster updates
 
 ### Individual Commodity Price Viewer (Previous Session)
 - ✅ **New Page**: Created pages/1_Price_Chart.py (formerly 6_Individual_Item_Viewer.py)
@@ -484,12 +586,37 @@ All 4 main pages now use SQL Server as primary data source with shared 1-hour ca
 
 ## Key Functions Reference
 
-### `load_ticker_mappings()` - NEW
+### `load_ticker_mappings()`
 ```python
 # From mongodb_utils.py
 # Returns: List[Dict] of ticker mappings
 # Cached: 5 minutes (TTL)
 # Used by: Dashboard, Ticker Analysis, Admin page
+```
+
+### `load_commodity_classifications()`
+```python
+# From mongodb_utils.py
+# Returns: List[Dict] of commodity classifications
+# Schema: {"item": "Ore 62", "sector": "Steel Material", "group": "Iron Ore", "region": "China"}
+# Cached: 60 seconds (TTL)
+# Used by: classification_loader, all data pages, pdf_processor
+```
+
+### `load_sql_data_raw()`
+```python
+# From classification_loader.py
+# Returns: DataFrame with Ticker, Date, Price, Name (NO classifications)
+# Cached: 1 hour (3600s) - expensive SQL query
+# Used by: Dashboard, Price Chart, Group Analysis, Ticker Analysis
+```
+
+### `apply_classification(df)`
+```python
+# From classification_loader.py
+# Returns: DataFrame with Sector, Group, Region added
+# NOT cached - re-applies fresh classifications using 60s cached MongoDB data
+# Enables classification changes to propagate in ~60 seconds
 ```
 
 ### `create_equal_weight_index(df, group, base_value=100)`
@@ -545,10 +672,17 @@ python pdf_processor.py
 ```
 
 ### 3. Update Classification
-1. Edit `commo_list.xlsx`
-2. Refresh Streamlit app (F5)
-3. No data regeneration needed
+1. Open Commodity List Admin page (pages/7_Commodity_List_Admin.py)
+2. Edit item: Select item → Update Sector/Group/Region → Save
+3. Add new item: Select from unmapped SQL items or type manually → Save
+4. Rename item: Check "Rename" → Select new name from SQL list → Save
+5. Changes live in ~60 seconds (classification cache TTL)
+6. No data regeneration or deployment needed
 
 ---
 
-**Last Updated**: 2025-10-22 - SQL Server migration COMPLETE for all 4 main pages (Dashboard, Price Chart, Group Analysis, Ticker Analysis). All pages now using SQL Server with 1-hour shared cache.
+**Last Updated**: 2025-10-22
+- ✅ **SQL Server Integration**: All 4 main pages using SQL Server with 1-hour shared cache
+- ✅ **Dynamic Classification System (Phase 1)**: MongoDB-based commodity classifications with web admin interface
+- ✅ **Two-Layer Caching**: Classification changes propagate in ~60 seconds without re-querying SQL
+- ✅ **Excel Removal**: All `commo_list.xlsx` references removed, single source of truth in MongoDB

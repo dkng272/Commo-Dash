@@ -90,13 +90,14 @@ def load_data_with_classification(price_data_path='data/cleaned_data.csv'):
     return df
 
 
-def load_sql_data_raw(start_date='2024-01-01'):
+def load_sql_data_raw(start_date=None):
     """
     Load RAW price data from SQL Server WITHOUT classification.
     This is the expensive operation that should be cached for a long time.
 
     Args:
-        start_date: Filter data from this date onwards (YYYY-MM-DD format)
+        start_date: Optional filter for data from this date onwards (YYYY-MM-DD format).
+                   Default None fetches all available data.
 
     Returns:
         DataFrame with columns: Ticker, Date, Price, Name (NO Sector/Group/Region yet)
@@ -104,6 +105,7 @@ def load_sql_data_raw(start_date='2024-01-01'):
     from sql_connection import fetch_all_commodity_data
 
     # Fetch all commodity data from SQL (expensive operation)
+    # Default: fetch ALL data (no date filter) for maximum flexibility
     df = fetch_all_commodity_data(start_date=start_date, parallel=True)
 
     # Drop classification columns if they somehow exist
@@ -114,7 +116,7 @@ def load_sql_data_raw(start_date='2024-01-01'):
     return df
 
 
-def load_sql_data_with_classification(start_date='2024-01-01'):
+def load_sql_data_with_classification(start_date=None):
     """
     Load price data from SQL Server and apply FRESH classification.
 
@@ -126,7 +128,8 @@ def load_sql_data_with_classification(start_date='2024-01-01'):
     without re-fetching expensive SQL data.
 
     Args:
-        start_date: Filter data from this date onwards (YYYY-MM-DD format)
+        start_date: Optional filter for data from this date onwards (YYYY-MM-DD format).
+                   Default None fetches all available data.
 
     Returns:
         DataFrame with columns: Ticker, Date, Price, Name, Sector, Group, Region

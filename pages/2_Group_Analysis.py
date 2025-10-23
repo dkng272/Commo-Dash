@@ -29,7 +29,7 @@ st.markdown("""
 @st.cache_data(ttl=3600)
 def load_raw_sql_data():
     """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
-    return load_sql_data_raw(start_date='2024-01-01')
+    return load_sql_data_raw()  # Fetch ALL available data, filter later
 
 def load_data():
     """
@@ -106,6 +106,38 @@ def build_indexes(df):
 
 # Load data
 df = load_data()
+
+# ============ TIMEFRAME SELECTOR (SIDEBAR) ============
+st.sidebar.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 16px;">Timeframe</h3>
+    </div>
+""", unsafe_allow_html=True)
+
+# Preset timeframe options
+timeframe_options = {
+    'YTD': f'{pd.Timestamp.now().year}-01-01',
+    '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+    '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
+    'All Time': df['Date'].min().strftime('%Y-%m-%d') if not df.empty else '2020-01-01'
+}
+
+selected_timeframe = st.sidebar.radio(
+    "Select Timeframe",
+    options=list(timeframe_options.keys()),
+    index=0,
+    horizontal=False
+)
+
+# Filter data by selected timeframe
+start_date = pd.to_datetime(timeframe_options[selected_timeframe])
+df = df[df['Date'] >= start_date].copy()
+
+st.sidebar.caption(f"Data from: {start_date.strftime('%Y-%m-%d')}")
+st.sidebar.divider()
+
+# Build indexes after filtering
 all_indexes, combined_df, regional_indexes, regional_combined_df = build_indexes(df)
 
 # Sidebar for group selection

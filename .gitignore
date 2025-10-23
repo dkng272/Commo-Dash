@@ -60,3 +60,9 @@ news/*_converted.md
 # X API
 x_api/tweets_*.json
 x_api/tweets_*_summary.txt
+
+# Claude
+claude_logs/*
+claude_summaries/*
+claude_reports/*
+claude.md

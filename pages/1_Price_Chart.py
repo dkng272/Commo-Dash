@@ -25,7 +25,7 @@ st.title("📊 Commodity Viewer")
 @st.cache_data(ttl=3600)
 def load_raw_sql_data():
     """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
-    return load_sql_data_raw(start_date='2024-01-01')
+    return load_sql_data_raw()  # Fetch ALL available data, filter later
 
 def load_data():
     """
@@ -55,6 +55,36 @@ def load_classification_data():
 
 df_all = load_data()
 classification_df = load_classification_data()
+
+# ============ TIMEFRAME SELECTOR (TOP OF SIDEBAR) ============
+st.sidebar.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 16px;">Timeframe</h3>
+    </div>
+""", unsafe_allow_html=True)
+
+# Preset timeframe options
+timeframe_options = {
+    'YTD': f'{pd.Timestamp.now().year}-01-01',
+    '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+    '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
+    'All Time': df_all['Date'].min().strftime('%Y-%m-%d') if not df_all.empty else '2020-01-01'
+}
+
+selected_timeframe = st.sidebar.radio(
+    "Select Timeframe",
+    options=list(timeframe_options.keys()),
+    index=0,
+    horizontal=False
+)
+
+# Filter data by selected timeframe
+start_date = pd.to_datetime(timeframe_options[selected_timeframe])
+df_all = df_all[df_all['Date'] >= start_date].copy()
+
+st.sidebar.caption(f"Data from: {start_date.strftime('%Y-%m-%d')}")
+st.sidebar.divider()
 
 # Time period aggregation function
 def aggregate_by_period(df, period='Daily'):
@@ -106,12 +136,12 @@ def gradient_header(text):
     """, unsafe_allow_html=True)
 
 # ============ SIDEBAR FILTERS ============
-# st.sidebar.markdown("""
-#     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-#                 padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-#         <h3 style="color: white; margin: 0; font-size: 18px;">Filters</h3>
-#     </div>
-# """, unsafe_allow_html=True)
+st.sidebar.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 16px;">Filters</h3>
+    </div>
+""", unsafe_allow_html=True)
 
 # Get unique sectors
 sectors = sorted(classification_df['Sector'].dropna().unique().tolist())
@@ -213,6 +243,17 @@ if len(available_items) > 0:
             pct = calculate_pct_change(item_df, days)
             changes[label] = pct
 
+        # Calculate YTD change
+        current_year = pd.Timestamp.now().year
+        year_start = pd.Timestamp(f'{current_year}-01-01')
+        ytd_data = item_df[item_df['Date'] >= year_start]
+        if len(ytd_data) > 1:
+            ytd_start_price = ytd_data.iloc[0]['Price']
+            ytd_latest_price = ytd_data.iloc[-1]['Price']
+            changes['YTD'] = ((ytd_latest_price / ytd_start_price) - 1) * 100
+        else:
+            changes['YTD'] = None
+
         # Get group/region info
         item_info = classification_df[classification_df['Item'] == item].iloc[0]
 
@@ -224,6 +265,7 @@ if len(available_items) > 0:
             '1D': changes['1D'],
             '1W': changes['1W'],
             '1M': changes['1M'],
+            'YTD': changes['YTD'],
             '3M': changes['3M'],
             '6M': changes['6M'],
             '1Y': changes['1Y']
@@ -250,7 +292,7 @@ if len(available_items) > 0:
             return 'color: #6b7280; font-weight: 600'
 
     # Format percentage columns
-    for col in ['1D', '1W', '1M', '3M', '6M', '1Y']:
+    for col in ['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y']:
         display_df[col] = display_df[col].apply(lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A")
 
     # Apply styling
@@ -259,10 +301,11 @@ if len(available_items) > 0:
         '1D': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
         '1W': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
         '1M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
+        'YTD': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
         '3M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
         '6M': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A",
         '1Y': lambda x: f"{x:+.2f}%" if pd.notna(x) else "N/A"
-    }).map(color_pct, subset=['1D', '1W', '1M', '3M', '6M', '1Y'])
+    }).map(color_pct, subset=['1D', '1W', '1M', 'YTD', '3M', '6M', '1Y'])
 
     # Display using st.dataframe for better rendering
     st.dataframe(

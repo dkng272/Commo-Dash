@@ -14,14 +14,11 @@ from commo_dashboard import create_equal_weight_index, create_regional_indexes
 from ssi_api import fetch_historical_price
 from classification_loader import load_sql_data_raw, apply_classification
 
-# Global start date for all data on this page
-GLOBAL_START_DATE = '2024-01-01'
-
 # Load data with dynamic classification
 @st.cache_data(ttl=3600)
 def load_raw_sql_data():
     """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
-    return load_sql_data_raw(start_date=GLOBAL_START_DATE)
+    return load_sql_data_raw()  # Fetch ALL available data, filter later
 
 def load_data():
     """
@@ -326,6 +323,38 @@ def calculate_ticker_summary(ticker, ticker_data, df, all_indexes, regional_inde
 
 # Load data
 df = load_data()
+
+# ============ TIMEFRAME SELECTOR (SIDEBAR) ============
+st.sidebar.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
+        <h3 style="color: white; margin: 0; font-size: 16px;">Timeframe</h3>
+    </div>
+""", unsafe_allow_html=True)
+
+# Preset timeframe options
+timeframe_options = {
+    'YTD': f'{pd.Timestamp.now().year}-01-01',
+    '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+    '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
+    'All Time': df['Date'].min().strftime('%Y-%m-%d') if not df.empty else '2020-01-01'
+}
+
+selected_timeframe = st.sidebar.radio(
+    "Select Timeframe",
+    options=list(timeframe_options.keys()),
+    index=0,
+    horizontal=False
+)
+
+# Filter data by selected timeframe
+start_date = pd.to_datetime(timeframe_options[selected_timeframe])
+df = df[df['Date'] >= start_date].copy()
+
+st.sidebar.caption(f"Data from: {start_date.strftime('%Y-%m-%d')}")
+st.sidebar.divider()
+
+# Build indexes and load mappings after filtering
 ticker_mapping = load_ticker_mapping()
 all_indexes, regional_indexes = build_indexes(df)
 
@@ -841,7 +870,7 @@ if ticker_data:
                 fig_combined.add_hline(y=0, line=dict(color='gray', dash='dash', width=1), row=2, col=1)
 
         # Add stock price to 3rd subplot
-        stock_data = fetch_historical_price(selected_ticker, start_date=GLOBAL_START_DATE)
+        stock_data = fetch_historical_price(selected_ticker, start_date=start_date.strftime('%Y-%m-%d'))
         if stock_data is not None and not stock_data.empty:
             stock_data = stock_data.sort_values('Date').reset_index(drop=True)
             stock_data['Normalized'] = (stock_data['Price'] / stock_data['Price'].iloc[0]) * 100
