@@ -66,3 +66,4 @@ claude_logs/*
 claude_summaries/*
 claude_reports/*
 claude.md
+SESSION_SUMMARY.md
