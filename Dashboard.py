@@ -550,28 +550,28 @@ with tab1:
             catalyst = get_catalyst(selected_group)
 
             if catalyst:
-                import html
-                summary_escaped = html.escape(catalyst.get('summary', 'No summary available'))
                 search_date = catalyst.get('search_date', 'N/A')
+                summary = catalyst.get('summary', 'No summary available')
                 timeline = catalyst.get('timeline', [])
 
-                # Display catalyst card
-                st.markdown(f"""
-                    <div style="background: white; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 12px;">
-                        <div style="color: #6b7280; font-size: 12px; margin-bottom: 8px;">Last updated: {search_date}</div>
-                        <p style="margin: 0; color: #333; line-height: 1.6; font-size: 14px;">{summary_escaped}</p>
-                    </div>
-                """, unsafe_allow_html=True)
+                # Build combined text: summary + timeline
+                catalyst_text = f"Last updated: {search_date}\n\n{summary}"
 
-                # Timeline in expander
                 if timeline:
-                    with st.expander(f"View Timeline ({len(timeline)} events)", expanded=False):
-                        for entry in timeline:
-                            date = entry.get('date', 'Unknown')
-                            event = entry.get('event', 'No description')
-                            st.markdown(f"**{date}**")
-                            st.text(event)
-                            st.markdown("---")
+                    catalyst_text += "\n\nTimeline:\n"
+                    for entry in timeline:
+                        date = entry.get('date', 'Unknown')
+                        event = entry.get('event', 'No description')
+                        catalyst_text += f"\n• {date}: {event}\n"
+
+                # Display in simple text area
+                st.text_area(
+                    label="",
+                    value=catalyst_text,
+                    height=300,
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
             else:
                 st.info(f"No catalyst news found for {selected_group}")
 
