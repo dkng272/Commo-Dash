@@ -196,61 +196,9 @@ def display_analysis(df_all, available_items, selected_items, classification_df)
     Only this section re-runs when timeframe changes (not sidebar filters).
     """
 
-    # ============ CHART CONTROLS ============
-    st.markdown("""
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    padding: 8px 12px; border-radius: 8px; margin-bottom: 16px;">
-            <h3 style="color: white; margin: 0; font-size: 16px;">Chart Controls</h3>
-        </div>
-    """, unsafe_allow_html=True)
-
-    # Preset timeframe options
-    timeframe_options = {
-        'YTD': f'{pd.Timestamp.now().year}-01-01',
-        '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
-        '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
-        'All Time': df_all['Date'].min().strftime('%Y-%m-%d') if not df_all.empty else '2020-01-01'
-    }
-
-    # Three columns for all chart controls
-    col_timeframe, col_period, col_display = st.columns(3)
-
-    with col_timeframe:
-        selected_timeframe = st.radio(
-            "Timeframe",
-            options=list(timeframe_options.keys()),
-            index=0,
-            horizontal=False
-        )
-
-    with col_period:
-        period = st.radio(
-            "Time Period",
-            options=['Daily', 'Weekly', 'Monthly', 'Quarterly'],
-            index=0,
-            horizontal=False
-        )
-
-    with col_display:
-        display_mode = st.radio(
-            "Display Mode",
-            options=['Normalized (Base 100)', 'Absolute Prices'],
-            index=0,
-            horizontal=False
-        )
-
-    # Calculate start date and lookback date (150 days before for calculations)
-    display_start_date = pd.to_datetime(timeframe_options[selected_timeframe])
-    calc_start_date = display_start_date - pd.DateOffset(days=150)
-
-    st.caption(f"📅 Display from: {display_start_date.strftime('%Y-%m-%d')} | 📊 Calculations from: {calc_start_date.strftime('%Y-%m-%d')}")
-    st.divider()
-
-    # Filter data with 150D lookback for calculations
-    df_calc = df_all[df_all['Date'] >= calc_start_date].copy()
-
     # ============ SUMMARY STATISTICS TABLE ============
     # Always show table for available items (filtered by sidebar filters)
+    # Table uses ALL available data to ensure accurate long-term metrics
     if len(available_items) > 0:
         gradient_header("Summary Statistics")
 
@@ -259,8 +207,8 @@ def display_analysis(df_all, available_items, selected_items, classification_df)
 
         for item in available_items:
             # Filter by Name column (not Ticker) since item comes from commo_list Item
-            # Use df_calc (with 150D lookback) for calculations
-            item_df = df_calc[df_calc['Name'] == item][['Date', 'Price']].copy()
+            # Use all available data for accurate metric calculations
+            item_df = df_all[df_all['Name'] == item][['Date', 'Price']].copy()
             item_df = item_df.sort_values('Date')
 
             if len(item_df) == 0:
@@ -352,9 +300,49 @@ def display_analysis(df_all, available_items, selected_items, classification_df)
         if len(selected_items) > 0:
             gradient_header("Price Chart")
 
+            # ============ CHART CONTROLS ============
+            # Preset timeframe options
+            timeframe_options = {
+                'YTD': f'{pd.Timestamp.now().year}-01-01',
+                '1Y': (pd.Timestamp.now() - pd.DateOffset(years=1)).strftime('%Y-%m-%d'),
+                '3Y': (pd.Timestamp.now() - pd.DateOffset(years=3)).strftime('%Y-%m-%d'),
+                'All Time': df_all['Date'].min().strftime('%Y-%m-%d') if not df_all.empty else '2020-01-01'
+            }
+
+            # Three columns for all chart controls
+            col_timeframe, col_period, col_display = st.columns(3)
+
+            with col_timeframe:
+                selected_timeframe = st.radio(
+                    "Timeframe",
+                    options=list(timeframe_options.keys()),
+                    index=0,
+                    horizontal=False
+                )
+
+            with col_period:
+                period = st.radio(
+                    "Time Period",
+                    options=['Daily', 'Weekly', 'Monthly', 'Quarterly'],
+                    index=0,
+                    horizontal=False
+                )
+
+            with col_display:
+                display_mode = st.radio(
+                    "Display Mode",
+                    options=['Normalized (Base 100)', 'Absolute Prices'],
+                    index=0,
+                    horizontal=False
+                )
+
+            # Calculate display start date based on timeframe
+            display_start_date = pd.to_datetime(timeframe_options[selected_timeframe])
+            st.caption(f"📅 Showing data from: {display_start_date.strftime('%Y-%m-%d')}")
+
             # Prepare data for selected items
-            # Filter for display timeframe only (not calc window)
-            df_display = df_calc[df_calc['Date'] >= display_start_date].copy()
+            # Filter for display timeframe
+            df_display = df_all[df_all['Date'] >= display_start_date].copy()
 
             chart_data = []
             for item in selected_items:
