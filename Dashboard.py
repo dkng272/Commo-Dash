@@ -539,23 +539,30 @@ with tab1:
 
             # Catalyst section for selected group
             st.divider()
-            st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-                    <h3 style="color: white; margin: 0; font-size: 18px;">Latest News from X - {selected_group}</h3>
-                </div>
-            """, unsafe_allow_html=True)
 
             # Get latest catalyst for this group
             catalyst = get_catalyst(selected_group)
 
+            # Build header with date if catalyst exists
             if catalyst:
                 search_date = catalyst.get('search_date', 'N/A')
+                header_text = f"Latest News from X - {selected_group} <span style='font-size: 12px; font-weight: normal;'>(Last updated: {search_date})</span>"
+            else:
+                header_text = f"Latest News from X - {selected_group}"
+
+            st.markdown(f"""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+                    <h3 style="color: white; margin: 0; font-size: 18px;">{header_text}</h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+            if catalyst:
                 summary = catalyst.get('summary', 'No summary available')
                 timeline = catalyst.get('timeline', [])
 
-                # Build combined text: summary + timeline
-                catalyst_text = f"Last updated: {search_date}\n\n{summary}"
+                # Build combined text: summary + timeline (no date here)
+                catalyst_text = summary
 
                 if timeline:
                     catalyst_text += "\n\nTimeline:\n"
@@ -564,13 +571,10 @@ with tab1:
                         event = entry.get('event', 'No description')
                         catalyst_text += f"\n• {date}: {event}\n"
 
-                # Display in simple text area
-                st.text_area(
-                    label="",
-                    value=catalyst_text,
-                    height=300,
-                    disabled=True,
-                    label_visibility="collapsed"
+                # Display in scrollable container with selectable text
+                st.markdown(
+                    f'<div style="max-height: 300px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #f9fafb; font-family: monospace; white-space: pre-wrap;">{catalyst_text}</div>',
+                    unsafe_allow_html=True
                 )
             else:
                 st.info(f"No catalyst news found for {selected_group}")
