@@ -31,12 +31,16 @@ Instructions:
 - If no relevant news for a group, use empty string ""
 - Return ONLY the JSON object, no additional text
 - Keep each summary to 1-2 concise sentences maximum
-- When making cross-sector connections, focus on the COMMODITY IMPACT, not the mechanism: extract the effect on supply/demand/prices but omit operational details from other sectors (e.g., for Oil, mention "increased exports" but not "VLCC rates rose 34%"; for Iron Ore, mention "restocking activity" but not "Capesize rates jumped")
+- When making cross-sector connections, focus on the COMMODITY IMPACT, not the mechanism: extract the effect on supply/demand/prices but omit operational details from other sectors (e.g., for Crude Oil, mention "increased exports" but not "VLCC rates rose 34%"; for Iron Ore, mention "restocking activity" but not "Capesize rates jumped")
 
 NOTE
-- PVC: Refers to all plastic products (PE, PP, etc.). Any news about plastics should be included under PVC.
-- Classify by shipping type — Container (SCFI, CCFI, WCI, TEU, FEU, Transpacific, Asia–Europe), Dry Bulk (BDI, Capesize, Panamax, Supramax, Handysize, iron ore, coal, grain, tonne-miles), and Liquids Shipping (aka Tankers) (BDTI, BCTI, VLCC, Suezmax, Aframax, LR, MR, crude, product tankers). Include mentions of freight rates, TCE, fleet growth, and demand-supply balance.
-- Products: refer to downstream refined products (gasoline, diesel, jet fuel, naphtha, fuel oil, etc.). Any news about refined products should be included under Products.
+- Plastics and Polymers: Refers to all plastic products (PVC, PE, PP, etc.). Any news about plastics should be included under Plastics and Polymers.
+- Refined Petroleum Products: Refers to downstream refined products (gasoline, diesel, jet fuel, naphtha, fuel oil, etc.). Any news about refined products should be included under Refined Petroleum Products.
+- Classify by shipping type:
+  • Container Freight (SCFI, CCFI, WCI, TEU, FEU, Transpacific, Asia–Europe)
+  • Dry Bulk Shipping (BDI, Capesize, Panamax, Supramax, Handysize, iron ore, coal, grain, tonne-miles)
+  • Crude and Product Tankers (BDTI, BCTI, VLCC, Suezmax, Aframax, LR, MR, crude oil tankers, product tankers)
+  Include mentions of freight rates, TCE, fleet growth, and demand-supply balance.
 
 REPORT:
 """

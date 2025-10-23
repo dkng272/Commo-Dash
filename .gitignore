@@ -66,3 +66,4 @@ SESSION_SUMMARY.md
 
 # Testing xai_API
 /xai_api/*
+/rename_utils/*

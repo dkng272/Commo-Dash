@@ -369,7 +369,7 @@ with tab1:
         time_period = st.radio(
             "Select Time Period for Top Movers",
             options=['5D', '10D', '50D', '150D'],
-            index=2,  # Default to 50D
+            index=0,  # Default to 5D
             horizontal=True,
             key="commodity_time_period"
         )
@@ -643,7 +643,7 @@ with tab2:
         time_period_stock = st.radio(
             "Select Time Period for Top Movers",
             options=['5D', '10D', '50D', '150D'],
-            index=2,  # Default to 50D
+            index=0,  # Default to 5D
             horizontal=True,
             key="stock_time_period"
         )
