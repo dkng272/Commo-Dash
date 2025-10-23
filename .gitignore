@@ -64,6 +64,10 @@ claude_reports/*
 claude.md
 SESSION_SUMMARY.md
 
-# Testing xai_API
-/xai_api/*
+# xai_api - ignore only sensitive files
+xai_api/.env
+xai_api/output/
+xai_api/*.json
+
+# Testing utils
 /rename_utils/*

@@ -20,9 +20,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load data with dynamic classification
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=21600)  # 6 hours (data updates once daily)
 def load_raw_sql_data(start_date='2024-01-01'):
-    """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
+    """Load RAW commodity price data from SQL Server (cached 6 hours - expensive operation)."""
     return load_sql_data_raw(start_date=start_date)
 
 def load_data(start_date='2024-01-01'):
@@ -30,7 +30,7 @@ def load_data(start_date='2024-01-01'):
     Load commodity price data with FRESH classification.
 
     Two-layer caching:
-    1. SQL data cached for 1 hour (expensive)
+    1. SQL data cached for 6 hours (expensive, data updates once daily)
     2. Classification applied fresh each time (uses 60s cached classifications from MongoDB)
 
     This allows classification changes to appear within ~60 seconds without re-querying SQL.
@@ -38,7 +38,7 @@ def load_data(start_date='2024-01-01'):
     Args:
         start_date: Start date for data filtering (YYYY-MM-DD format)
     """
-    # Get cached raw SQL data (1 hour cache)
+    # Get cached raw SQL data (6 hour cache)
     df_raw = load_raw_sql_data(start_date)
 
     # Apply FRESH classification (MongoDB cached 60s, re-applied every page load)
@@ -279,8 +279,8 @@ with col_update:
         </div>
     """, unsafe_allow_html=True)
 
-# Load ticker mappings from MongoDB
-from mongodb_utils import load_ticker_mappings
+# Load ticker mappings and catalyst functions from MongoDB
+from mongodb_utils import load_ticker_mappings, load_catalysts
 ticker_mapping = load_ticker_mappings()
 
 spreads_df = calculate_all_ticker_spreads(df, all_indexes, regional_indexes, ticker_mapping)
@@ -874,6 +874,83 @@ with tab2:
         </div>
     """, unsafe_allow_html=True)
     render_quick_viewer()
+
+st.divider()
+
+# ============ RECENT CATALYSTS SECTION ============
+st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+        <h3 style="color: white; margin: 0; font-size: 18px;">Recent Catalysts (Last 7 Days)</h3>
+    </div>
+""", unsafe_allow_html=True)
+
+# Load and filter recent catalysts
+try:
+    all_catalysts = load_catalysts()
+
+    if all_catalysts:
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        seven_days_ago = now - timedelta(days=7)
+
+        # Filter catalysts from last 7 days
+        recent_catalysts = [
+            c for c in all_catalysts
+            if (now - datetime.fromisoformat(c['date_created'])).days <= 7
+        ]
+
+        if recent_catalysts:
+            # Sort by date (newest first) - already sorted by date_created, just take top 3
+            recent_catalysts_sorted = recent_catalysts[:3]
+
+            # Display top 3 catalysts
+            for catalyst in recent_catalysts_sorted:
+                commodity_group = catalyst.get('commodity_group', 'Unknown')
+                summary = catalyst.get('summary', 'No summary available')
+                search_date = catalyst.get('search_date', 'N/A')
+                timeline = catalyst.get('timeline', [])
+
+                # Escape HTML entities to prevent markdown interpretation
+                import html
+                summary_escaped = html.escape(summary)
+
+                # Color code - simple purple gradient
+                icon = "📊"
+                color = "#667eea"
+
+                # Display catalyst card with expandable timeline
+                st.markdown(f"""
+                    <div style="background: white; border-left: 4px solid {color};
+                                padding: 16px; margin: 12px 0; border-radius: 8px;
+                                box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <div>
+                                <span style="font-size: 20px;">{icon}</span>
+                                <strong style="font-size: 16px; color: #333; margin-left: 8px;">{commodity_group}</strong>
+                            </div>
+                            <span style="color: #6b7280; font-size: 13px;">{search_date}</span>
+                        </div>
+                        <p style="margin: 0; color: #555; line-height: 1.6; font-size: 14px;">{summary_escaped}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                # Add expandable timeline
+                if timeline:
+                    with st.expander(f"View Timeline ({len(timeline)} events)", expanded=False):
+                        for entry in timeline:
+                            date = entry.get('date', 'Unknown')
+                            event = entry.get('event', 'No description')
+                            st.markdown(f"**{date}**")
+                            st.text(event)  # Use st.text() to avoid markdown interpretation
+                            st.markdown("---")
+        else:
+            st.info("No catalysts found in the last 7 days. Visit the Catalyst Admin page to run a search.")
+    else:
+        st.info("No catalysts available. Visit the Catalyst Admin page to run your first search.")
+
+except Exception as e:
+    st.warning(f"Could not load catalysts: {e}")
 
 st.divider()
 

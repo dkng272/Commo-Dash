@@ -3,7 +3,8 @@ MongoDB utility functions for Commodity Dashboard
 """
 from pymongo import MongoClient
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
+from datetime import datetime, timedelta
 
 # Try to import streamlit, but make it optional for local usage
 try:
@@ -228,3 +229,169 @@ def save_commodity_classifications(classifications: List[Dict[str, Any]]) -> boo
         else:
             print(msg)
         return False
+
+# ==================== Catalyst Functions ====================
+
+def load_catalysts() -> List[Dict[str, Any]]:
+    """
+    Load all catalysts from MongoDB
+    Returns list of catalyst dictionaries sorted by date_created (newest first)
+
+    Schema: {
+        "commodity_group": "Iron Ore",
+        "summary": "...",
+        "timeline": [{"date": "YYYY-MM-DD", "event": "..."}],
+        "search_date": "YYYY-MM-DD",
+        "date_created": "ISO8601 timestamp",
+        "search_trigger": "auto" or "manual",
+        "cooldown_until": "ISO8601 timestamp"
+    }
+    """
+    db = get_database()
+    collection = db["catalysts"]
+
+    # Fetch all catalysts, sorted by date_created (newest first)
+    catalysts = list(collection.find({}, {'_id': 0}).sort("date_created", -1))
+
+    return catalysts
+
+# Cache the function only if Streamlit is available (60s TTL like classifications)
+if HAS_STREAMLIT:
+    load_catalysts = st.cache_data(ttl=60)(load_catalysts)
+
+def get_catalyst(commodity_group: str) -> Optional[Dict[str, Any]]:
+    """
+    Get LATEST catalyst for a specific commodity group (by date_created)
+
+    Parameters:
+    - commodity_group: Name of the commodity group (e.g., "Iron Ore")
+
+    Returns:
+    - Latest catalyst document if found, None otherwise
+    """
+    db = get_database()
+    collection = db["catalysts"]
+
+    # Get the latest catalyst by date_created
+    catalyst = collection.find_one(
+        {"commodity_group": commodity_group},
+        {'_id': 0},
+        sort=[("date_created", -1)]
+    )
+
+    return catalyst
+
+def get_catalyst_history(commodity_group: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Get catalyst history for a specific commodity group
+
+    Parameters:
+    - commodity_group: Name of the commodity group
+    - limit: Maximum number of historical entries to return (default: 10)
+
+    Returns:
+    - List of catalyst documents, sorted newest first
+    """
+    db = get_database()
+    collection = db["catalysts"]
+
+    catalysts = list(collection.find(
+        {"commodity_group": commodity_group},
+        {'_id': 0}
+    ).sort("date_created", -1).limit(limit))
+
+    return catalysts
+
+def save_catalyst(
+    commodity_group: str,
+    summary: str,
+    timeline: List[Dict[str, str]],
+    search_trigger: str = "manual"
+) -> bool:
+    """
+    Save new catalyst for a commodity group (creates new document)
+
+    Parameters:
+    - commodity_group: Name of the commodity group
+    - summary: 1-2 sentence summary of catalysts
+    - timeline: List of {"date": "YYYY-MM-DD", "event": "..."} dicts
+    - search_trigger: "auto" or "manual"
+
+    Returns:
+    - bool: True if successful, False otherwise
+    """
+    try:
+        db = get_database()
+        collection = db["catalysts"]
+
+        now = datetime.utcnow()
+        search_date = now.strftime("%Y-%m-%d")
+        cooldown_until = now + timedelta(days=5)
+
+        # Create new catalyst document
+        new_catalyst = {
+            "commodity_group": commodity_group,
+            "summary": summary,
+            "timeline": timeline,
+            "search_date": search_date,
+            "date_created": now.isoformat(),
+            "search_trigger": search_trigger,
+            "cooldown_until": cooldown_until.isoformat()
+        }
+
+        # Insert new document
+        collection.insert_one(new_catalyst)
+
+        # Create indexes for faster queries
+        collection.create_index([("commodity_group", 1), ("date_created", -1)])
+        collection.create_index("date_created")
+
+        # Clear the cache so new data is loaded (only if using Streamlit)
+        if HAS_STREAMLIT and hasattr(load_catalysts, 'clear'):
+            load_catalysts.clear()
+
+        return True
+
+    except Exception as e:
+        msg = f"Error saving catalyst to MongoDB: {e}"
+        if HAS_STREAMLIT:
+            st.error(msg)
+        else:
+            print(msg)
+        return False
+
+def can_auto_trigger(commodity_group: str) -> Tuple[bool, str]:
+    """
+    Check if auto-trigger is allowed for a commodity (5-day cooldown)
+    Manual searches always allowed - this is only for auto-trigger
+
+    Parameters:
+    - commodity_group: Name of the commodity group
+
+    Returns:
+    - Tuple[bool, str]: (can_trigger, message)
+    """
+    # Get latest catalyst
+    latest_catalyst = get_catalyst(commodity_group)
+
+    if not latest_catalyst:
+        return True, "No previous search found"
+
+    cooldown_until_str = latest_catalyst.get("cooldown_until")
+    if not cooldown_until_str:
+        return True, "No cooldown set"
+
+    try:
+        cooldown_until = datetime.fromisoformat(cooldown_until_str)
+        now = datetime.utcnow()
+
+        if now < cooldown_until:
+            days_remaining = (cooldown_until - now).days
+            hours_remaining = ((cooldown_until - now).seconds // 3600)
+            return False, f"Cooldown active: {days_remaining}d {hours_remaining}h remaining"
+
+        return True, "Cooldown expired, ready to search"
+
+    except Exception as e:
+        # If error parsing date, allow trigger
+        return True, f"Cooldown check error: {e}"

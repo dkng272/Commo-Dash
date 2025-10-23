@@ -26,9 +26,14 @@ Commo Dash/
 ├── classification_loader.py       # Dynamic classification loading (MongoDB)
 ├── commo_dashboard.py             # Index creation functions
 ├── ssi_api.py                     # Stock price API integration
+├── rename_group.py                # Batch group rename script (MongoDB)
+├── check_groups.py                # List all groups and items (utility)
 └── news/
     ├── reports/                   # PDF storage
-    └── pdf_processor.py           # PDF processing script
+    ├── pdf_processor.py           # PDF processing script
+    └── prompts/                   # AI prompt templates
+        ├── commodity_prompts.py   # Multi-sector report prompts
+        └── sector_prompts.py      # Sector-focused report prompts
 ```
 
 ---
@@ -104,6 +109,53 @@ df_display = df_calc[Date >= display_start_date]  # For chart display
 2. Accurate metrics - 150D lookback ensures sufficient data
 3. Fast switching - st.fragment prevents sidebar flicker
 4. User clarity - Dashboard picker shows 150D requirement
+
+### 3. Group Name Optimization for AI Routing
+
+**Problem**: Generic or ambiguous group names caused AI misclassification when routing news from PDF reports.
+
+**Solution**: Renamed 12 commodity groups (out of 28 total) to improve AI routing accuracy.
+
+**Phase 1 - Ambiguity Fixes** (High Priority):
+1. Liquids Shipping → **Crude and Product Tankers**
+2. Products → **Refined Petroleum Products**
+3. PVC → **Plastics and Polymers**
+4. Yellow P4 → **Phosphorus Products**
+5. Pangaseus → **Pangasius Aquaculture** (typo fix)
+
+**Phase 2 - Industry Alignment** (Medium Priority):
+6. Bulk Shipping → **Dry Bulk Shipping**
+7. Met Coal → **Metallurgical Coal**
+8. Long Steel → **Construction Steel**
+9. Grain → **Grains and Oilseeds**
+10. Coal → **Thermal Coal**
+
+**Phase 3 - Polish** (Low Priority):
+11. Oil → **Crude Oil**
+12. Gas/LNG → **Natural Gas and LNG**
+13. Container Shipping → **Container Freight**
+
+**Implementation**:
+- Created `rename_group.py` script for batch MongoDB updates
+- Updated 3 MongoDB collections:
+  - `commodity_classification`: 49 items renamed
+  - `ticker_mappings`: 28 documents updated (inputs + outputs)
+  - `reports`: 410 report entries updated (nested key renames)
+- Updated AI prompts in `news/prompts/`:
+  - `commodity_prompts.py`: Removed confusing aliases like "(aka Tankers)"
+  - `sector_prompts.py`: Updated mapping examples
+
+**Key Improvements**:
+- **Direct keyword matching**: "VLCC rates" → "Crude and Product Tankers" (no mental mapping)
+- **Eliminated ambiguity**: "Refined Petroleum Products" vs "Crude and Product Tankers" (clear separation)
+- **Industry terminology**: "Metallurgical Coal", "Dry Bulk Shipping" match Bloomberg/Reuters
+- **Simplified prompts**: Removed explanatory text, let group names speak for themselves
+
+**Benefits**:
+1. Better AI precision - matches specific terms to correct groups
+2. Reduced prompt engineering - less explanation needed
+3. Clearer taxonomy - shipping types clearly distinguished
+4. Self-explanatory names - "Phosphorus Products" > "Yellow P4"
 
 ---
 
@@ -319,6 +371,16 @@ python pdf_processor.py
 - **Other pages**: Choose preset (YTD/1Y/3Y/All Time)
 - All changes filter in-memory (no SQL re-query)
 
+### 5. Rename Commodity Group
+1. Edit `rename_group.py` to specify old and new group names
+2. Run script: `python rename_group.py`
+3. Script updates all 3 MongoDB collections:
+   - commodity_classification
+   - ticker_mappings (inputs + outputs)
+   - reports (commodity_news keys)
+4. Restart Streamlit app or wait 60 seconds for cache refresh
+5. Update AI prompts if needed (news/prompts/)
+
 ---
 
 ## Previous Major Updates Summary
@@ -356,6 +418,7 @@ python pdf_processor.py
 3. **Timeframe Flexibility**: Load all data once, filter in-memory for instant switching
 4. **st.fragment**: Use for sections that change independently (prevents sidebar flicker)
 5. **150D Lookback**: Essential for accurate long-term metrics with short display periods
+6. **Group Naming for AI**: Descriptive, self-explanatory names improve AI routing accuracy. Avoid generic terms ("Products", "PVC") and confusing aliases ("aka Tankers").
 
 ---
 
@@ -366,6 +429,9 @@ python pdf_processor.py
 - ✅ st.fragment optimization (Price Chart page)
 - ✅ 150D lookback window (accurate metrics)
 - ✅ YTD performance column
+- ✅ Dashboard quick view defaults (5D)
+- ✅ Group name optimization (12 groups renamed for AI routing)
+- ✅ AI prompt simplification (removed aliases, improved clarity)
 - ✅ SQL Server integration (1-hour cache)
 - ✅ MongoDB classifications (60s cache)
 - ✅ Two-layer caching architecture
