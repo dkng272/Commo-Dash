@@ -454,13 +454,11 @@ with tab1:
                 summary = catalyst.get('summary', 'No summary available')
                 search_date = catalyst.get('search_date', 'N/A')
 
+                # Subdued header with date
                 st.markdown(f"""
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-                        <h3 style="color: white; margin: 0; font-size: 18px;">
-                            Latest News from X - {selected_group}
-                            <span style='font-size: 12px; font-weight: normal;'>(Last updated: {search_date})</span>
-                        </h3>
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: #667eea; font-size: 15px; font-weight: 600;">Latest News from X - {selected_group}</span>
+                        <span style="color: #9ca3af; font-size: 12px; margin-left: 12px;">(Last updated: {search_date})</span>
                     </div>
                 """, unsafe_allow_html=True)
 
