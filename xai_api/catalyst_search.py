@@ -125,7 +125,10 @@ def search_catalysts(
             "- Summary: MAXIMUM 2 sentences\n"
             "- Each event: 2-3 sentences with specifics (what, who, why, impact)\n"
             "- Include concrete details: quantities, prices, countries, companies, policy names\n"
-            "- Timeline: only events with specific dates\n"
+            "- Timeline: only UNIQUE, DISTINCT events - do NOT repeat similar catalysts with different dates\n"
+            "- Each timeline entry must represent a DIFFERENT catalyst (e.g., supply disruption, policy change, demand shift)\n"
+            "- If multiple dates relate to the SAME catalyst, combine into ONE entry with the most relevant date\n"
+            "- Focus on MAJOR catalysts only (1-3 key events max)\n"
             "- Sort newest first\n"
             "- NO markdown code blocks\n"
         )
@@ -138,11 +141,13 @@ def search_catalysts(
 
     chat.append(
         user(
-            f"Find the reasons why {commodity_group} prices moved significantly{direction_text} "
+            f"Find the main reasons why {commodity_group} prices moved significantly{direction_text} "
             f"over the past {lookback_days} days. "
             f"\n\n"
-            f"For each catalyst, identify the SPECIFIC DATE when it happened. "
-            f"What was the main driver? What specific events occurred on which dates?"
+            f"Identify 1-3 DISTINCT catalysts - each should be a DIFFERENT type of event "
+            f"(e.g., supply disruption, policy announcement, demand change, economic data). "
+            f"For each catalyst, provide the SPECIFIC DATE when it occurred. "
+            f"Do NOT list the same catalyst multiple times with different dates."
         )
     )
 

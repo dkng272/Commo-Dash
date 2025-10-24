@@ -365,14 +365,17 @@ with tab1:
     # Quick Viewer for Commodity Index Swings
     @st.fragment
     def render_commodity_quick_viewer():
-        # Time period selector
-        time_period = st.radio(
-            "Select Time Period for Top Movers",
-            options=['5D', '10D', '50D', '150D'],
-            index=0,  # Default to 5D
-            horizontal=True,
-            key="commodity_time_period"
-        )
+        # Row 1: Time period and commodity selector on same row
+        col_period, col_group = st.columns([1, 2])
+
+        with col_period:
+            time_period = st.radio(
+                "Select Time Period",
+                options=['5D', '10D', '50D', '150D'],
+                index=0,
+                horizontal=True,
+                key="commodity_time_period"
+            )
 
         # Map time period to column name
         period_column = f'{time_period} Abs Swing'
@@ -380,22 +383,23 @@ with tab1:
         # Get top 5 groups by selected time period
         available_groups = summary_df.nlargest(5, period_column)['Group'].tolist()
 
-        if available_groups:
-            # Dropdown selector
-            selected_group = st.selectbox(
-                "Select Commodity Group",
-                options=available_groups,
-                index=0,
-                help=f"Top 5 commodity groups by {time_period} swing",
-                key="commodity_group_selector"
-            )
+        with col_group:
+            if available_groups:
+                selected_group = st.selectbox(
+                    "Select Commodity Group",
+                    options=available_groups,
+                    index=0,
+                    help=f"Top 5 commodity groups by {time_period} swing",
+                    key="commodity_group_selector"
+                )
+            else:
+                selected_group = None
 
-            st.divider()
-
+        if available_groups and selected_group:
             # Get group metrics
             group_metrics = summary_df[summary_df['Group'] == selected_group].iloc[0]
 
-            # Display key metrics with color coding
+            # Row 2: Display key metrics with color coding
             metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
             def get_color(value):
@@ -443,167 +447,26 @@ with tab1:
 
             st.divider()
 
-            # Create 2-column layout
-            chart_col1, chart_col2 = st.columns(2)
-
-            with chart_col1:
-                # Group Index Chart
-                st.markdown(f"**{selected_group} Index**")
-                fig_group = go.Figure()
-
-                # Get group index data
-                group_index = all_indexes[selected_group].copy()
-                group_index = group_index.sort_values('Date')
-
-                # Normalize to base 100
-                first_value = group_index['Index_Value'].iloc[0]
-                group_index['Normalized'] = (group_index['Index_Value'] / first_value) * 100
-
-                # Add moving averages
-                group_index['MA20'] = group_index['Normalized'].rolling(20, min_periods=1).mean()
-                group_index['MA50'] = group_index['Normalized'].rolling(50, min_periods=1).mean()
-
-                # Plot index
-                fig_group.add_trace(go.Scatter(
-                    x=group_index['Date'],
-                    y=group_index['Normalized'],
-                    mode='lines',
-                    name='Index',
-                    line=dict(color='#667eea', width=2.5)
-                ))
-
-                # Plot MAs
-                fig_group.add_trace(go.Scatter(
-                    x=group_index['Date'],
-                    y=group_index['MA20'],
-                    mode='lines',
-                    name='MA20',
-                    line=dict(color='#ffa500', width=1.5, dash='dash')
-                ))
-
-                fig_group.add_trace(go.Scatter(
-                    x=group_index['Date'],
-                    y=group_index['MA50'],
-                    mode='lines',
-                    name='MA50',
-                    line=dict(color='#ff6b6b', width=1.5, dash='dot')
-                ))
-
-                fig_group.update_layout(
-                    xaxis_title='', yaxis_title='Index (Base=100)',
-                    hovermode='x unified', template='plotly_white', height=400,
-                    showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-                    margin=dict(l=10, r=10, t=30, b=30)
-                )
-
-                st.plotly_chart(fig_group, use_container_width=True, key="group_index_chart")
-
-            with chart_col2:
-                # Component Tickers Chart
-                st.markdown(f"**Component Items in {selected_group}**")
-                fig_components = go.Figure()
-
-                # Get all commodity names in this group
-                group_data = df[df['Group'] == selected_group].copy()
-                names_list = group_data['Name'].unique()
-
-                # Color palette for components
-                colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a', '#fee140', '#30cfd0']
-
-                for idx, name in enumerate(names_list):
-                    item_data = group_data[group_data['Name'] == name].copy()
-                    item_data = item_data.sort_values('Date')
-
-                    if not item_data.empty:
-                        # Normalize to base 100
-                        first_price = item_data['Price'].iloc[0]
-                        item_data['Normalized'] = (item_data['Price'] / first_price) * 100
-
-                        fig_components.add_trace(go.Scatter(
-                            x=item_data['Date'],
-                            y=item_data['Normalized'],
-                            mode='lines',
-                            name=name,
-                            line=dict(color=colors[idx % len(colors)], width=2),
-                            opacity=0.7
-                        ))
-
-                fig_components.update_layout(
-                    xaxis_title='', yaxis_title='Index (Base=100)',
-                    hovermode='x unified', template='plotly_white', height=400,
-                    showlegend=True, legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
-                    margin=dict(l=10, r=10, t=30, b=30)
-                )
-
-                st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
-
-            # Catalyst section for selected group
-            st.divider()
-
-            # Get latest catalyst for this group
+            # Row 3: Catalyst Summary (just the summary text, no timeline)
             catalyst = get_catalyst(selected_group)
-
-            # Build header with date if catalyst exists
-            if catalyst:
-                search_date = catalyst.get('search_date', 'N/A')
-                header_text = f"Latest News from X - {selected_group} <span style='font-size: 12px; font-weight: normal;'>(Last updated: {search_date})</span>"
-            else:
-                header_text = f"Latest News from X - {selected_group}"
-
-            st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-                    <h3 style="color: white; margin: 0; font-size: 18px;">{header_text}</h3>
-                </div>
-            """, unsafe_allow_html=True)
 
             if catalyst:
                 summary = catalyst.get('summary', 'No summary available')
-                timeline = catalyst.get('timeline', [])
+                search_date = catalyst.get('search_date', 'N/A')
 
-                # Display summary (use st.text to avoid markdown interpretation)
-                st.text(summary)
+                st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+                        <h3 style="color: white; margin: 0; font-size: 18px;">
+                            Latest News from X - {selected_group}
+                            <span style='font-size: 12px; font-weight: normal;'>(Last updated: {search_date})</span>
+                        </h3>
+                    </div>
+                """, unsafe_allow_html=True)
 
-                # Display timeline if exists
-                if timeline:
-                    st.markdown("**Timeline:**")
-                    for entry in timeline:
-                        date = entry.get('date', 'Unknown')
-                        event = entry.get('event', 'No description')
-                        st.markdown(f"**{date}**:")
-                        st.text(event)  # Use st.text to avoid markdown interpretation
+                st.text(summary)  # Plain text to avoid markdown interpretation
             else:
-                st.info(f"No catalyst news found for {selected_group}")
-
-            # Reports section for selected group
-            st.divider()
-            st.markdown(f"""
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-                    <h3 style="color: white; margin: 0; font-size: 18px;">Latest Reports - {selected_group}</h3>
-                </div>
-            """, unsafe_allow_html=True)
-
-            news_items = load_latest_news(selected_group)
-
-            if news_items:
-                # Merge all news items into one text box with scrollable container (using HTML)
-                merged_news = []
-                for item in news_items:  # Show all news items
-                    # Escape special characters for HTML display
-                    news_text = item['news'].replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-
-                    # Add date header and news (using HTML for bold)
-                    merged_news.append(f"<strong>{item['date']}</strong><br><br>{news_text}")
-
-                # Display all merged news in a scrollable container with max height
-                news_content = "<hr>".join(merged_news)
-                st.markdown(
-                    f'<div style="max-height: 400px; overflow-y: auto; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">{news_content}</div>',
-                    unsafe_allow_html=True
-                )
-            else:
-                st.info(f"No recent reports found for {selected_group}")
+                st.info(f"No catalyst news found for {selected_group}. Visit the Catalyst Admin page to run a search.")
 
         else:
             st.info("No commodity groups available to display")
