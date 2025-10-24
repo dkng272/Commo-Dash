@@ -447,7 +447,7 @@ with tab1:
 
             st.divider()
 
-            # Row 3: Catalyst Summary (just the summary text, no timeline)
+            # Row 3: Catalyst Summary
             catalyst = get_catalyst(selected_group)
 
             if catalyst:
@@ -467,6 +467,115 @@ with tab1:
                 st.text(summary)  # Plain text to avoid markdown interpretation
             else:
                 st.info(f"No catalyst news found for {selected_group}. Visit the Catalyst Admin page to run a search.")
+
+            st.divider()
+
+            # Row 4: Charts
+            chart_col1, chart_col2 = st.columns(2)
+
+            with chart_col1:
+                # Group Index Chart
+                st.markdown(f"**{selected_group} Index**")
+                fig_group = go.Figure()
+
+                # Get group index data
+                group_index = all_indexes[selected_group].copy()
+                group_index = group_index.sort_values('Date')
+
+                # Normalize to base 100
+                first_value = group_index['Index_Value'].iloc[0]
+                group_index['Normalized'] = (group_index['Index_Value'] / first_value) * 100
+
+                # Add moving averages
+                group_index['MA20'] = group_index['Normalized'].rolling(20, min_periods=1).mean()
+                group_index['MA50'] = group_index['Normalized'].rolling(50, min_periods=1).mean()
+
+                # Plot index
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['Normalized'],
+                    mode='lines',
+                    name='Index',
+                    line=dict(color='#667eea', width=2.5)
+                ))
+
+                # Plot MAs
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['MA20'],
+                    mode='lines',
+                    name='MA20',
+                    line=dict(color='#ffa500', width=1.5, dash='dash')
+                ))
+
+                fig_group.add_trace(go.Scatter(
+                    x=group_index['Date'],
+                    y=group_index['MA50'],
+                    mode='lines',
+                    name='MA50',
+                    line=dict(color='#ff6b6b', width=1.5, dash='dot')
+                ))
+
+                fig_group.update_layout(
+                    xaxis_title='', yaxis_title='Index (Base=100)',
+                    hovermode='x unified', template='plotly_white', height=400,
+                    showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    margin=dict(l=10, r=10, t=30, b=30)
+                )
+
+                st.plotly_chart(fig_group, use_container_width=True, key="group_index_chart")
+
+            with chart_col2:
+                # Component Tickers Chart
+                st.markdown(f"**Component Items in {selected_group}**")
+                fig_components = go.Figure()
+
+                # Get all commodity names in this group
+                group_data = df[df['Group'] == selected_group].copy()
+                names_list = group_data['Name'].unique()
+
+                # Color palette for components
+                colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#00f2fe', '#43e97b', '#38f9d7', '#fa709a', '#fee140', '#30cfd0']
+
+                for idx, name in enumerate(names_list):
+                    item_data = group_data[group_data['Name'] == name].copy()
+                    item_data = item_data.sort_values('Date')
+
+                    if not item_data.empty:
+                        # Normalize to base 100
+                        first_price = item_data['Price'].iloc[0]
+                        item_data['Normalized'] = (item_data['Price'] / first_price) * 100
+
+                        fig_components.add_trace(go.Scatter(
+                            x=item_data['Date'],
+                            y=item_data['Normalized'],
+                            mode='lines',
+                            name=name,
+                            line=dict(color=colors[idx % len(colors)], width=2),
+                            opacity=0.7
+                        ))
+
+                fig_components.update_layout(
+                    xaxis_title='', yaxis_title='Index (Base=100)',
+                    hovermode='x unified', template='plotly_white', height=400,
+                    showlegend=True, legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02),
+                    margin=dict(l=10, r=10, t=30, b=30)
+                )
+
+                st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
+
+            # Row 5: Catalyst Timeline
+            if catalyst:
+                timeline = catalyst.get('timeline', [])
+
+                if timeline:
+                    st.divider()
+                    st.markdown("**Catalyst Timeline:**")
+                    for entry in timeline:
+                        date = entry.get('date', 'Unknown')
+                        event = entry.get('event', 'No description')
+                        st.markdown(f"**{date}**:")
+                        st.text(event)  # Use st.text to avoid markdown interpretation
 
         else:
             st.info("No commodity groups available to display")
