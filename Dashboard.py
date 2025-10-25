@@ -484,7 +484,7 @@ with tab1:
                 # Subdued header with date
                 st.markdown(f"""
                     <div style="margin-bottom: 8px;">
-                        <span style="color: #667eea; font-size: 15px; font-weight: 600;">Latest News from X - {selected_group}</span>
+                        <span style="color: #667eea; font-size: 15px; font-weight: 600;">News from X - {selected_group}</span>
                         <span style="color: #9ca3af; font-size: 12px; margin-left: 12px;">(Last updated: {search_date})</span>
                     </div>
                 """, unsafe_allow_html=True)
@@ -909,11 +909,11 @@ with tab2:
 
 st.divider()
 
-# ============ RECENT CATALYSTS SECTION ============
+# ============ RECENT NEWS FROM X SECTION ============
 st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-        <h3 style="color: white; margin: 0; font-size: 18px;">Recent Catalysts (Last 7 Days)</h3>
+        <h3 style="color: white; margin: 0; font-size: 18px;">News from X (Last 7 Days)</h3>
     </div>
 """, unsafe_allow_html=True)
 
@@ -986,8 +986,8 @@ except Exception as e:
 
 st.divider()
 
-# Latest Market Reports - Collapsible
-with st.expander("Latest Market Reports - All Commodities", expanded=False):
+# Insights from Sell-Side Reports - Collapsible
+with st.expander("Insights from Sell-Side Reports - All Commodities", expanded=False):
     # Collect all news from all groups
     all_news = []
     for group in all_indexes.keys():
