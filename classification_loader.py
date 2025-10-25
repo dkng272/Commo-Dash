@@ -1,5 +1,6 @@
 #%%
 import pandas as pd
+import streamlit as st
 
 def load_classification():
     """
@@ -71,41 +72,30 @@ def apply_classification(df):
 
     return df
 
-def load_data_with_classification(price_data_path='data/cleaned_data.csv'):
+
+
+@st.cache_data(ttl=21600)  # 6 hours - GLOBAL cache shared across all pages
+def load_raw_sql_data_cached(start_date=None):
     """
-    Load price data and apply latest classification.
-    This allows instant classification updates without regenerating price data.
-    """
-    df = pd.read_csv(price_data_path)
-    df['Date'] = pd.to_datetime(df['Date'])
+    Load RAW commodity price data from SQL Server (cached 6 hours GLOBALLY).
 
-    # If classification columns exist, drop them (we'll reload fresh)
-    cols_to_drop = [col for col in ['Group', 'Region', 'Sector'] if col in df.columns]
-    if cols_to_drop:
-        df = df.drop(columns=cols_to_drop)
+    ⚠️ IMPORTANT: This function is cached ONCE and shared across ALL pages in the app.
+    Date filtering should happen AFTER this call (in-memory filtering is fast).
 
-    # Apply fresh classification
-    df = apply_classification(df)
-
-    return df
-
-
-def load_sql_data_raw(start_date=None):
-    """
-    Load RAW price data from SQL Server WITHOUT classification.
-    This is the expensive operation that should be cached for a long time.
+    This is the SINGLE source of truth for SQL data loading. All pages should use this
+    function instead of defining their own cached loaders.
 
     Args:
-        start_date: Optional filter for data from this date onwards (YYYY-MM-DD format).
+        start_date: Optional start date filter (YYYY-MM-DD format).
                    Default None fetches all available data.
+                   Recommended: Use None and filter in-memory for maximum cache reusability.
 
     Returns:
-        DataFrame with columns: Ticker, Date, Price, Name (NO Sector/Group/Region yet)
+        DataFrame with columns: Ticker, Date, Price, Name (NO Sector/Group/Region classifications)
     """
     from sql_connection import fetch_all_commodity_data
 
-    # Fetch all commodity data from SQL (expensive operation)
-    # Default: fetch ALL data (no date filter) for maximum flexibility
+    # Fetch all commodity data from SQL (expensive operation - cached 6 hours)
     df = fetch_all_commodity_data(start_date=start_date, parallel=True)
 
     # Drop classification columns if they somehow exist
@@ -116,28 +106,3 @@ def load_sql_data_raw(start_date=None):
     return df
 
 
-def load_sql_data_with_classification(start_date=None):
-    """
-    Load price data from SQL Server and apply FRESH classification.
-
-    This function:
-    1. Loads raw SQL data (cached separately for performance)
-    2. Applies current classification from MongoDB (refreshes quickly)
-
-    This design allows classification changes to appear within 60s
-    without re-fetching expensive SQL data.
-
-    Args:
-        start_date: Optional filter for data from this date onwards (YYYY-MM-DD format).
-                   Default None fetches all available data.
-
-    Returns:
-        DataFrame with columns: Ticker, Date, Price, Name, Sector, Group, Region
-    """
-    # Get raw SQL data (this is cached separately by the caller)
-    df = load_sql_data_raw(start_date=start_date)
-
-    # Apply FRESH classification (re-applied every call, uses 60s cached classifications)
-    df = apply_classification(df)
-
-    return df

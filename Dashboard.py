@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from commo_dashboard import create_equal_weight_index, create_regional_indexes, create_sector_indexes, load_latest_news
-from classification_loader import load_sql_data_raw, apply_classification
+from classification_loader import load_raw_sql_data_cached, apply_classification
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
 
@@ -20,29 +20,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load data with dynamic classification
-@st.cache_data(ttl=21600)  # 6 hours (data updates once daily)
-def load_raw_sql_data(start_date='2024-01-01'):
-    """Load RAW commodity price data from SQL Server (cached 6 hours - expensive operation)."""
-    return load_sql_data_raw(start_date=start_date)
-
 def load_data(start_date='2024-01-01'):
     """
     Load commodity price data with FRESH classification.
 
     Two-layer caching:
-    1. SQL data cached for 6 hours (expensive, data updates once daily)
+    1. SQL data cached GLOBALLY for 6 hours (via load_raw_sql_data_cached - shared across all pages)
     2. Classification applied fresh each time (uses 60s cached classifications from MongoDB)
 
-    This allows classification changes to appear within ~60 seconds without re-querying SQL.
+    This allows:
+    - SQL query runs ONCE across entire app (all pages share the same cache)
+    - Classification changes appear within ~60 seconds without re-querying SQL
+    - Date filtering happens in-memory (fast)
 
     Args:
         start_date: Start date for data filtering (YYYY-MM-DD format)
     """
-    # Get cached raw SQL data (6 hour cache)
-    df_raw = load_raw_sql_data(start_date)
+    # Get GLOBALLY cached raw SQL data (6 hour cache, shared across all pages)
+    # Fetch ALL data without date filter for maximum cache reusability
+    df_raw = load_raw_sql_data_cached(start_date=None)
+
+    # Filter by date in-memory (fast)
+    df_filtered = df_raw[df_raw['Date'] >= pd.to_datetime(start_date)].copy()
 
     # Apply FRESH classification (MongoDB cached 60s, re-applied every page load)
-    df_classified = apply_classification(df_raw)
+    df_classified = apply_classification(df_filtered)
 
     # Filter out items without classification (internal calculated fields)
     df = df_classified.dropna(subset=['Group', 'Region', 'Sector'])

@@ -50,55 +50,6 @@ def create_equal_weight_index(df, group_name, base_value=100):
 
     return result
 
-def create_weighted_index(df, group_name, weights_dict, base_value=100):
-    """
-    Creates a custom-weighted index for a commodity group based on user-defined weights.
-    Uses available data on each day, accounting for different starting dates.
-
-    Parameters:
-    - df: DataFrame with columns ['Date', 'Ticker', 'Price', 'Group']
-    - group_name: Name of the group to create index for
-    - weights_dict: Dictionary mapping Ticker names to their weights (e.g., {'Gold': 0.5, 'Silver': 0.5})
-    - base_value: Starting value of the index (default: 100)
-
-    Returns:
-    - DataFrame with ['Date', 'Index_Value'] for the group
-    """
-    # Filter for the group
-    group_df = df[df['Group'] == group_name].copy()
-
-    # Remove duplicates, keep last value for each Date-Ticker combination
-    group_df = group_df.drop_duplicates(subset=['Date', 'Ticker'], keep='last')
-
-    # Pivot to get prices for each ticker by date
-    pivot_df = group_df.pivot(index='Date', columns='Ticker', values='Price')
-
-    # Calculate daily returns
-    returns_df = pivot_df.pct_change(fill_method=None)
-
-    # Apply weights - normalize by available tickers each day
-    weighted_returns = pd.Series(0.0, index=returns_df.index)
-
-    for date in returns_df.index:
-        available_tickers = returns_df.loc[date].dropna().index
-        available_weights = {t: weights_dict.get(t, 0) for t in available_tickers}
-        total_weight = sum(available_weights.values())
-
-        if total_weight > 0:
-            normalized_weights = {t: w/total_weight for t, w in available_weights.items()}
-            weighted_returns.loc[date] = sum(returns_df.loc[date, t] * normalized_weights[t]
-                                             for t in available_tickers if not pd.isna(returns_df.loc[date, t]))
-
-    # Build index starting from base value
-    index_values = (1 + weighted_returns).cumprod() * base_value
-    index_values.iloc[0] = base_value
-
-    result = pd.DataFrame({
-        'Date': index_values.index,
-        'Index_Value': index_values.values
-    })
-
-    return result
 
 def create_sector_indexes(df, base_value=100):
     """

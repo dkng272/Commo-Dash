@@ -178,29 +178,94 @@ df_display = df_calc[Date >= display_start_date]  # For chart display
 
 ### Two-Layer Caching System
 
-**Problem**: Combined SQL + classifications cached together → classification changes invisible until SQL cache expires (1 hour)
+**Problem**: Combined SQL + classifications cached together → classification changes invisible until SQL cache expires (6 hours)
 
 **Solution**:
 
 ```python
-# Layer 1: Raw SQL data (expensive - cached 1 hour)
-@st.cache_data(ttl=3600)
-def load_raw_sql_data():
-    return load_sql_data_raw()
+# Layer 1: Raw SQL data (expensive - GLOBAL cache 6 hours)
+# Located in classification_loader.py
+@st.cache_data(ttl=21600)  # 6 hours - shared across ALL pages
+def load_raw_sql_data_cached(start_date=None):
+    df = fetch_all_commodity_data(start_date=start_date, parallel=True)
+    return df  # Returns: Ticker, Date, Price, Name (NO classifications)
 
-# Layer 2: Fresh classification (cheap - NOT cached)
+# Layer 2: Fresh classification (cheap - NOT cached at page level)
 def load_data():
-    df_raw = load_raw_sql_data()  # From cache
-    df = apply_classification(df_raw)  # Fresh, uses 60s cached MongoDB
+    # Get globally cached raw SQL data
+    df_raw = load_raw_sql_data_cached(start_date=None)
+
+    # Apply FRESH classification (uses 60s cached MongoDB data)
+    df_classified = apply_classification(df_raw)
+
+    # Filter out unclassified items
+    df = df_classified.dropna(subset=['Group', 'Region', 'Sector'])
     return df
 ```
 
-**Benefits**:
-- SQL queries: 1 hour cache (expensive)
-- Classifications: 60 seconds cache (cheap)
-- Classification changes visible in ~60 seconds without re-querying SQL
+**Implementation Details**:
+- **ALL pages** call `load_raw_sql_data_cached()` from `classification_loader.py`
+- This function is cached **ONCE** with `@st.cache_data(ttl=21600)` (6 hours)
+- Cache is **GLOBAL** - shared across Dashboard, Price Chart, Group Analysis, Ticker Analysis
+- Each page has its own `load_data()` wrapper that:
+  1. Calls globally cached `load_raw_sql_data_cached(start_date=None)`
+  2. Applies fresh classification via `apply_classification(df_raw)`
+  3. Filters by date in-memory (if needed)
+- `apply_classification()` uses `load_classification()` which internally calls MongoDB (60s cache)
 
-**Pages Using Two-Layer Cache**: Dashboard, Price Chart, Group Analysis, Ticker Analysis
+**Benefits**:
+- SQL query runs ONCE every 6 hours across entire app (expensive operation shared)
+- Classifications refreshed every 60 seconds (cheap MongoDB lookup)
+- Classification changes visible in ~60 seconds without re-querying SQL
+- Date filtering happens in-memory (instant, no cache invalidation)
+- No duplicate SQL queries even when switching between pages
+
+**Pages Using Two-Layer Cache**: Dashboard, Price Chart, Group Analysis, Ticker Analysis (all 4 main pages)
+
+### Complete Caching Architecture
+
+**3-Tier Cache Hierarchy**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Level 1: GLOBAL SQL Cache (6 hours)                         │
+│ • classification_loader.load_raw_sql_data_cached()          │
+│ • Cached ONCE, shared across ALL pages                      │
+│ • Decorator: @st.cache_data(ttl=21600)                      │
+│ • Returns: Ticker, Date, Price, Name (raw SQL data)         │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Level 2: MongoDB Caches (60s and 5min)                      │
+│ • load_commodity_classifications() - 60s cache              │
+│ • load_ticker_mappings() - 5min cache                       │
+│ • Decorator: @st.cache_data(ttl=60/300)                     │
+│ • Returns: Classification/mapping dictionaries              │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Level 3: Per-Page Processing (NOT cached)                   │
+│ • Each page's load_data() function                          │
+│ • Calls apply_classification(df_raw)                        │
+│ • Filters by date in-memory                                 │
+│ • Drops unclassified items                                  │
+│ • Fresh on every page load                                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Cache Invalidation Flow**:
+1. **SQL data changes** → Wait 6 hours OR manually clear cache (affects all pages)
+2. **Classification changes in MongoDB** → Visible in ~60 seconds (no SQL re-query)
+3. **Ticker mappings change in MongoDB** → Visible in ~5 minutes (no SQL re-query)
+4. **Page switch** → Instant (reuses GLOBAL SQL cache, re-applies fresh classification)
+5. **Timeframe change** → Instant (in-memory date filtering, no cache invalidation)
+
+**Why This Works**:
+- SQL data rarely changes (daily updates) → 6 hour cache is safe
+- Classifications change frequently during setup/admin → 60s cache enables quick iteration
+- Ticker mappings moderately stable → 5min cache balances freshness and performance
+- Each page independently applies fresh classification → MongoDB changes propagate quickly
+- Date filtering in-memory → No cache thrashing from timeframe changes
 
 ### MongoDB Collections
 
@@ -278,21 +343,25 @@ def load_data():
 ### Data Loading
 
 ```python
-load_sql_data_raw(start_date=None)
+# GLOBAL cached function (classification_loader.py)
+@st.cache_data(ttl=21600)  # 6 hours
+load_raw_sql_data_cached(start_date=None)
 # Returns: DataFrame with Ticker, Date, Price, Name (NO classifications)
-# Cached: 1 hour (expensive SQL query)
+# Shared across ALL pages - single SQL query for entire app
 
+# Applied fresh on each page load (NOT cached)
 apply_classification(df)
 # Returns: DataFrame with Sector, Group, Region added
-# NOT cached - re-applies fresh using 60s cached MongoDB data
+# Uses load_classification() which calls MongoDB (60s cache internally)
 
+# MongoDB loaders (mongodb_utils.py)
+@st.cache_data(ttl=300)  # 5 minutes
 load_ticker_mappings()
 # Returns: List[Dict] of ticker mappings
-# Cached: 5 minutes
 
+@st.cache_data(ttl=60)  # 60 seconds
 load_commodity_classifications()
 # Returns: List[Dict] of classifications
-# Cached: 60 seconds
 ```
 
 ### Index Creation
@@ -422,7 +491,14 @@ python pdf_processor.py
 
 ---
 
-**Last Updated**: 2025-10-23
+**Last Updated**: 2025-10-25
+
+**Recent Documentation Updates** (2025-10-25):
+- Deep dive into actual caching implementation across all pages
+- Documented GLOBAL SQL cache in `classification_loader.py` (6 hours, shared across all pages)
+- Clarified cache TTL values: SQL (6h), MongoDB classifications (60s), ticker mappings (5min)
+- Added 3-tier caching architecture diagram with cache invalidation flow
+- Emphasized single SQL query pattern for entire app (no duplicate queries)
 
 **Current State**:
 - ✅ Flexible timeframe selection (in-memory filtering)

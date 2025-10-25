@@ -8,7 +8,7 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from commo_dashboard import create_equal_weight_index, create_regional_indexes, load_latest_news
-from classification_loader import load_sql_data_raw, apply_classification
+from classification_loader import load_raw_sql_data_cached, apply_classification
 from mongodb_utils import get_catalyst
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
@@ -27,23 +27,20 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load data with dynamic classification
-@st.cache_data(ttl=3600)
-def load_raw_sql_data():
-    """Load RAW commodity price data from SQL Server (cached 1 hour - expensive operation)."""
-    return load_sql_data_raw()  # Fetch ALL available data, filter later
-
 def load_data():
     """
     Load commodity price data with FRESH classification.
 
     Two-layer caching:
-    1. SQL data cached for 1 hour (expensive)
+    1. SQL data cached GLOBALLY for 6 hours (via load_raw_sql_data_cached - shared across all pages)
     2. Classification applied fresh each time (uses 60s cached classifications from MongoDB)
 
-    This allows classification changes to appear within ~60 seconds without re-querying SQL.
+    This allows:
+    - SQL query runs ONCE across entire app (all pages share the same cache)
+    - Classification changes appear within ~60 seconds without re-querying SQL
     """
-    # Get cached raw SQL data (1 hour cache)
-    df_raw = load_raw_sql_data()
+    # Get GLOBALLY cached raw SQL data (6 hour cache, shared across all pages)
+    df_raw = load_raw_sql_data_cached(start_date=None)
 
     # Apply FRESH classification (MongoDB cached 60s, re-applied every page load)
     df_classified = apply_classification(df_raw)
