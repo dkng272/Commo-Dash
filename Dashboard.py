@@ -332,34 +332,58 @@ with tab1:
 
     with col1:
         st.write("**5D Swings**")
-        top_5d = summary_df.sort_values('5D Abs Swing', ascending=False).head(5)
+        # Top 5 positive changes
+        top_5d_pos = summary_df.nlargest(5, '5D Change (%)')[['Group', '5D Change (%)']]
+        # Bottom 5 negative changes
+        top_5d_neg = summary_df.nsmallest(5, '5D Change (%)')[['Group', '5D Change (%)']]
+        # Combine
+        combined_5d = pd.concat([top_5d_pos, top_5d_neg])
         st.dataframe(
-            top_5d[['Group', '5D Change (%)']].style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
-            hide_index=True
+            combined_5d.style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
+            hide_index=True,
+            height=400
         )
 
     with col2:
         st.write("**10D Swings**")
-        top_10d = summary_df.sort_values('10D Abs Swing', ascending=False).head(5)
+        # Top 5 positive changes
+        top_10d_pos = summary_df.nlargest(5, '10D Change (%)')[['Group', '10D Change (%)']]
+        # Bottom 5 negative changes
+        top_10d_neg = summary_df.nsmallest(5, '10D Change (%)')[['Group', '10D Change (%)']]
+        # Combine
+        combined_10d = pd.concat([top_10d_pos, top_10d_neg])
         st.dataframe(
-            top_10d[['Group', '10D Change (%)']].style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
-            hide_index=True
+            combined_10d.style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
+            hide_index=True,
+            height=400
         )
 
     with col3:
         st.write("**50D Swings**")
-        top_50d = summary_df.sort_values('50D Abs Swing', ascending=False).head(5)
+        # Top 5 positive changes
+        top_50d_pos = summary_df.nlargest(5, '50D Change (%)')[['Group', '50D Change (%)']]
+        # Bottom 5 negative changes
+        top_50d_neg = summary_df.nsmallest(5, '50D Change (%)')[['Group', '50D Change (%)']]
+        # Combine
+        combined_50d = pd.concat([top_50d_pos, top_50d_neg])
         st.dataframe(
-            top_50d[['Group', '50D Change (%)']].style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
-            hide_index=True
+            combined_50d.style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
+            hide_index=True,
+            height=400
         )
 
     with col4:
         st.write("**150D Swings**")
-        top_150d = summary_df.sort_values('150D Abs Swing', ascending=False).head(5)
+        # Top 5 positive changes
+        top_150d_pos = summary_df.nlargest(5, '150D Change (%)')[['Group', '150D Change (%)']]
+        # Bottom 5 negative changes
+        top_150d_neg = summary_df.nsmallest(5, '150D Change (%)')[['Group', '150D Change (%)']]
+        # Combine
+        combined_150d = pd.concat([top_150d_pos, top_150d_neg])
         st.dataframe(
-            top_150d[['Group', '150D Change (%)']].style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
-            hide_index=True
+            combined_150d.style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
+            hide_index=True,
+            height=400
         )
 
     # Quick Viewer for Commodity Index Swings
@@ -447,12 +471,13 @@ with tab1:
 
             st.divider()
 
-            # Row 3: Catalyst Summary
+            # Row 3: Catalyst Summary and Timeline
             catalyst = get_catalyst(selected_group)
 
             if catalyst:
                 summary = catalyst.get('summary', 'No summary available')
                 search_date = catalyst.get('search_date', 'N/A')
+                timeline = catalyst.get('timeline', [])
 
                 # Subdued header with date
                 st.markdown(f"""
@@ -463,6 +488,16 @@ with tab1:
                 """, unsafe_allow_html=True)
 
                 st.text(summary)  # Plain text to avoid markdown interpretation
+
+                # Timeline right after summary
+                if timeline:
+                    st.markdown("")  # Small spacing
+                    st.markdown("**Catalyst Timeline:**")
+                    for entry in timeline:
+                        date = entry.get('date', 'Unknown')
+                        event = entry.get('event', 'No description')
+                        st.markdown(f"**{date}**:")
+                        st.text(event)  # Use st.text to avoid markdown interpretation
             else:
                 st.info(f"No catalyst news found for {selected_group}. Visit the Catalyst Admin page to run a search.")
 
@@ -561,19 +596,6 @@ with tab1:
                 )
 
                 st.plotly_chart(fig_components, use_container_width=True, key="components_chart")
-
-            # Row 5: Catalyst Timeline
-            if catalyst:
-                timeline = catalyst.get('timeline', [])
-
-                if timeline:
-                    st.divider()
-                    st.markdown("**Catalyst Timeline:**")
-                    for entry in timeline:
-                        date = entry.get('date', 'Unknown')
-                        event = entry.get('event', 'No description')
-                        st.markdown(f"**{date}**:")
-                        st.text(event)  # Use st.text to avoid markdown interpretation
 
         else:
             st.info("No commodity groups available to display")
