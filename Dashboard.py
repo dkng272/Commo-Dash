@@ -334,56 +334,40 @@ with tab1:
 
     with col1:
         st.write("**5D Swings**")
-        # Top 5 positive changes
-        top_5d_pos = summary_df.nlargest(5, '5D Change (%)')[['Group', '5D Change (%)']]
-        # Bottom 5 negative changes
-        top_5d_neg = summary_df.nsmallest(5, '5D Change (%)')[['Group', '5D Change (%)']]
-        # Combine
-        combined_5d = pd.concat([top_5d_pos, top_5d_neg])
+        # Top 10 by absolute change
+        top_10_5d = summary_df.nlargest(10, '5D Abs Swing')[['Group', '5D Change (%)']]
         st.dataframe(
-            combined_5d.style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
+            top_10_5d.style.map(color_negative_red, subset=['5D Change (%)']).format({'5D Change (%)': '{:.2f}'}),
             hide_index=True,
             height=400
         )
 
     with col2:
         st.write("**10D Swings**")
-        # Top 5 positive changes
-        top_10d_pos = summary_df.nlargest(5, '10D Change (%)')[['Group', '10D Change (%)']]
-        # Bottom 5 negative changes
-        top_10d_neg = summary_df.nsmallest(5, '10D Change (%)')[['Group', '10D Change (%)']]
-        # Combine
-        combined_10d = pd.concat([top_10d_pos, top_10d_neg])
+        # Top 10 by absolute change
+        top_10_10d = summary_df.nlargest(10, '10D Abs Swing')[['Group', '10D Change (%)']]
         st.dataframe(
-            combined_10d.style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
+            top_10_10d.style.map(color_negative_red, subset=['10D Change (%)']).format({'10D Change (%)': '{:.2f}'}),
             hide_index=True,
             height=400
         )
 
     with col3:
         st.write("**50D Swings**")
-        # Top 5 positive changes
-        top_50d_pos = summary_df.nlargest(5, '50D Change (%)')[['Group', '50D Change (%)']]
-        # Bottom 5 negative changes
-        top_50d_neg = summary_df.nsmallest(5, '50D Change (%)')[['Group', '50D Change (%)']]
-        # Combine
-        combined_50d = pd.concat([top_50d_pos, top_50d_neg])
+        # Top 10 by absolute change
+        top_10_50d = summary_df.nlargest(10, '50D Abs Swing')[['Group', '50D Change (%)']]
         st.dataframe(
-            combined_50d.style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
+            top_10_50d.style.map(color_negative_red, subset=['50D Change (%)']).format({'50D Change (%)': '{:.2f}'}),
             hide_index=True,
             height=400
         )
 
     with col4:
         st.write("**150D Swings**")
-        # Top 5 positive changes
-        top_150d_pos = summary_df.nlargest(5, '150D Change (%)')[['Group', '150D Change (%)']]
-        # Bottom 5 negative changes
-        top_150d_neg = summary_df.nsmallest(5, '150D Change (%)')[['Group', '150D Change (%)']]
-        # Combine
-        combined_150d = pd.concat([top_150d_pos, top_150d_neg])
+        # Top 10 by absolute change
+        top_10_150d = summary_df.nlargest(10, '150D Abs Swing')[['Group', '150D Change (%)']]
         st.dataframe(
-            combined_150d.style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
+            top_10_150d.style.map(color_negative_red, subset=['150D Change (%)']).format({'150D Change (%)': '{:.2f}'}),
             hide_index=True,
             height=400
         )
@@ -404,12 +388,10 @@ with tab1:
             )
 
         # Map time period to column name
-        period_change_column = f'{time_period} Change (%)'
+        period_abs_column = f'{time_period} Abs Swing'
 
-        # Get top 5 positive and bottom 5 negative movers (10 total)
-        top_5_pos = summary_df.nlargest(5, period_change_column)['Group'].tolist()
-        top_5_neg = summary_df.nsmallest(5, period_change_column)['Group'].tolist()
-        available_groups = top_5_pos + top_5_neg
+        # Get top 10 by absolute change
+        available_groups = summary_df.nlargest(10, period_abs_column)['Group'].tolist()
 
         with col_group:
             if available_groups:
@@ -417,7 +399,7 @@ with tab1:
                     "Select Commodity Group",
                     options=available_groups,
                     index=0,
-                    help=f"Top 10 movers (5 positive + 5 negative) by {time_period}",
+                    help=f"Top 10 movers by absolute change ({time_period})",
                     key="commodity_group_selector"
                 )
             else:

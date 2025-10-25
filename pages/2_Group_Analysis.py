@@ -254,11 +254,13 @@ if catalyst:
     search_date = catalyst.get('search_date', 'N/A')
     timeline = catalyst.get('timeline', [])
 
-    # Subdued header with date
+    # Gradient header with date
     st.markdown(f"""
-        <div style="margin-bottom: 8px;">
-            <span style="color: #667eea; font-size: 15px; font-weight: 600;">News from X - {selected_group}</span>
-            <span style="color: #9ca3af; font-size: 12px; margin-left: 12px;">(Last updated: {search_date})</span>
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 8px 12px; border-radius: 8px; margin-bottom: 12px;
+                    display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">News from X - {selected_group}</h3>
+            <span style="color: rgba(255, 255, 255, 0.8); font-size: 12px;">Last updated: {search_date}</span>
         </div>
     """, unsafe_allow_html=True)
 
