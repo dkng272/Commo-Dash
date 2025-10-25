@@ -402,10 +402,12 @@ with tab1:
             )
 
         # Map time period to column name
-        period_column = f'{time_period} Abs Swing'
+        period_change_column = f'{time_period} Change (%)'
 
-        # Get top 5 groups by selected time period
-        available_groups = summary_df.nlargest(5, period_column)['Group'].tolist()
+        # Get top 5 positive and bottom 5 negative movers (10 total)
+        top_5_pos = summary_df.nlargest(5, period_change_column)['Group'].tolist()
+        top_5_neg = summary_df.nsmallest(5, period_change_column)['Group'].tolist()
+        available_groups = top_5_pos + top_5_neg
 
         with col_group:
             if available_groups:
@@ -413,7 +415,7 @@ with tab1:
                     "Select Commodity Group",
                     options=available_groups,
                     index=0,
-                    help=f"Top 5 commodity groups by {time_period} swing",
+                    help=f"Top 10 movers (5 positive + 5 negative) by {time_period}",
                     key="commodity_group_selector"
                 )
             else:

@@ -9,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from commo_dashboard import create_equal_weight_index, create_regional_indexes, load_latest_news
 from classification_loader import load_sql_data_raw, apply_classification
+from mongodb_utils import get_catalyst
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", menu_items=None)
 
@@ -246,12 +247,44 @@ st.plotly_chart(fig, use_container_width=True)
 names = df[df['Group'] == selected_group]['Name'].unique()
 st.caption(f"**Components:** {', '.join(sorted(names))}")
 
-# Market News for Selected Group
+# Catalyst Section
+st.divider()
+
+catalyst = get_catalyst(selected_group)
+
+if catalyst:
+    summary = catalyst.get('summary', 'No summary available')
+    search_date = catalyst.get('search_date', 'N/A')
+    timeline = catalyst.get('timeline', [])
+
+    # Subdued header with date
+    st.markdown(f"""
+        <div style="margin-bottom: 8px;">
+            <span style="color: #667eea; font-size: 15px; font-weight: 600;">Latest News from X - {selected_group}</span>
+            <span style="color: #9ca3af; font-size: 12px; margin-left: 12px;">(Last updated: {search_date})</span>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.text(summary)  # Plain text to avoid markdown interpretation
+
+    # Timeline right after summary
+    if timeline:
+        st.markdown("")  # Small spacing
+        st.markdown("**Catalyst Timeline:**")
+        for entry in timeline:
+            date = entry.get('date', 'Unknown')
+            event = entry.get('event', 'No description')
+            st.markdown(f"**{date}**:")
+            st.text(event)  # Use st.text to avoid markdown interpretation
+else:
+    st.info(f"No catalyst news found for {selected_group}. Visit the Catalyst Admin page to run a search.")
+
+# Market Reports for Selected Group
 st.divider()
 st.markdown(f"""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-        <h3 style="color: white; margin: 0; font-size: 18px;">Latest News - {selected_group}</h3>
+        <h3 style="color: white; margin: 0; font-size: 18px;">Latest Reports - {selected_group}</h3>
     </div>
 """, unsafe_allow_html=True)
 
