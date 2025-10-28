@@ -502,7 +502,14 @@ with tab2:
                             for r in failed:
                                 st.text(f"• {r['group']}: {r.get('error', 'Unknown error')}")
 
-                    # Clear cache and reset
-                    st.cache_data.clear()
+                    # Clear only catalyst cache so new results appear on Dashboard
+                    # Keep SQL price cache (6h) and other caches intact
+                    from mongodb_utils import load_catalysts
+                    if hasattr(load_catalysts, 'clear'):
+                        load_catalysts.clear()
+
+                    # Keep batch_movements visible so user can review results
+                    # Don't reset state or trigger rerun
                     st.session_state.batch_search_running = False
-                    st.session_state.batch_movements = None
+
+                    st.info("💡 New catalysts will appear on Dashboard within ~60 seconds.")

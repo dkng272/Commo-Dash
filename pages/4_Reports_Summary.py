@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Market News Summary")
 
@@ -15,13 +16,189 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title('📰 Chemical & Agriculture Market Reports')
+st.title('📰 Market News & Catalysts')
 
-# Load reports from MongoDB
+# Load data
 try:
-    from mongodb_utils import load_reports
+    from mongodb_utils import load_reports, load_catalysts, load_commodity_classifications
     reports_data = load_reports()
+    catalysts_data = load_catalysts()
+    classifications = load_commodity_classifications()
+except Exception as e:
+    st.error(f"Error loading data from MongoDB: {e}")
+    st.stop()
 
+# ===== TABS =====
+tab1, tab2 = st.tabs(["💡 Price Catalysts", "📄 PDF Reports"])
+
+# ===== TAB 1: PRICE CATALYSTS =====
+
+with tab1:
+    # Get all commodity groups
+    all_groups = sorted(list(set(c.get('group') for c in classifications if c.get('group'))))
+
+    # Create catalyst lookup by group
+    catalyst_by_group = {}
+    for catalyst in catalysts_data:
+        group = catalyst.get('commodity_group')
+        if group:
+            # Keep only the latest catalyst per group (catalysts_data is already sorted newest first)
+            if group not in catalyst_by_group:
+                catalyst_by_group[group] = catalyst
+
+    # Sidebar filters
+    st.sidebar.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+            <h3 style="color: white; margin: 0; font-size: 16px;">Catalyst Filters</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Search box
+    search_query = st.sidebar.text_input("🔍 Search commodity", placeholder="e.g., Iron Ore")
+
+    # Direction filter
+    direction_filter = st.sidebar.radio(
+        "Filter by Direction",
+        options=["All", "Bullish 📈", "Bearish 📉", "Both ↔️"],
+        index=0
+    )
+
+    # Sort options
+    sort_by = st.sidebar.radio(
+        "Sort by",
+        options=["Alphabetical", "Most Recent", "Has Catalyst"],
+        index=0
+    )
+
+    st.sidebar.divider()
+
+    # Filter groups by search query
+    if search_query:
+        filtered_groups = [g for g in all_groups if search_query.lower() in g.lower()]
+    else:
+        filtered_groups = all_groups
+
+    # Sort groups
+    if sort_by == "Alphabetical":
+        filtered_groups.sort()
+    elif sort_by == "Most Recent":
+        # Sort by catalyst date (newest first), groups without catalysts go to end
+        filtered_groups.sort(
+            key=lambda g: catalyst_by_group.get(g, {}).get('search_date', '0000-00-00'),
+            reverse=True
+        )
+    elif sort_by == "Has Catalyst":
+        # Groups with catalysts first, then alphabetical
+        filtered_groups.sort(key=lambda g: (g not in catalyst_by_group, g))
+
+    # Display stats
+    groups_with_catalyst = len([g for g in filtered_groups if g in catalyst_by_group])
+    st.sidebar.caption(f"Showing: {len(filtered_groups)} groups")
+    st.sidebar.caption(f"With catalyst: {groups_with_catalyst}")
+    st.sidebar.caption(f"Total tracked: {len(all_groups)}")
+
+    # Main area: Display catalyst cards in grid
+    st.markdown("---")
+
+    if len(filtered_groups) == 0:
+        st.info("No commodities match your search.")
+    else:
+        # Create 3-column grid
+        cols_per_row = 3
+        rows = (len(filtered_groups) + cols_per_row - 1) // cols_per_row
+
+        for row_idx in range(rows):
+            cols = st.columns(cols_per_row)
+
+            for col_idx in range(cols_per_row):
+                group_idx = row_idx * cols_per_row + col_idx
+
+                if group_idx >= len(filtered_groups):
+                    break
+
+                group = filtered_groups[group_idx]
+                catalyst = catalyst_by_group.get(group)
+
+                with cols[col_idx]:
+                    if catalyst:
+                        # Has catalyst
+                        summary = catalyst.get('summary', 'No summary')
+                        search_date = catalyst.get('search_date', 'Unknown')
+                        trigger_type = catalyst.get('search_trigger', 'Unknown')
+                        timeline = catalyst.get('timeline', [])
+
+                        # Determine direction from summary keywords (simple heuristic)
+                        summary_lower = summary.lower()
+                        if any(word in summary_lower for word in ['rally', 'surge', 'increase', 'bullish', 'gains', 'rise']):
+                            direction_emoji = "📈"
+                            border_color = "#d4edda"
+                        elif any(word in summary_lower for word in ['decline', 'fall', 'bearish', 'drop', 'weaken', 'pressure']):
+                            direction_emoji = "📉"
+                            border_color = "#f8d7da"
+                        else:
+                            direction_emoji = "↔️"
+                            border_color = "#fff3cd"
+
+                        # Apply direction filter
+                        if direction_filter != "All":
+                            if direction_filter == "Bullish 📈" and direction_emoji != "📈":
+                                continue
+                            if direction_filter == "Bearish 📉" and direction_emoji != "📉":
+                                continue
+                            if direction_filter == "Both ↔️" and direction_emoji != "↔️":
+                                continue
+
+                        # Display card
+                        st.markdown(f"""
+                            <div style="border: 2px solid {border_color}; border-radius: 8px;
+                                        padding: 12px; background-color: {border_color}20; margin-bottom: 16px;">
+                                <h4 style="margin: 0 0 8px 0;">{direction_emoji} {group}</h4>
+                                <p style="margin: 0; font-size: 12px; color: #666;">
+                                    {search_date} | {trigger_type.capitalize()}
+                                </p>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                        # Summary (truncate if too long)
+                        if len(summary) > 150:
+                            summary_display = summary[:150] + "..."
+                        else:
+                            summary_display = summary
+
+                        st.markdown(f"**Summary:**")
+                        st.text(summary_display)
+
+                        # Timeline expander
+                        if timeline:
+                            with st.expander(f"📅 View Timeline ({len(timeline)} events)"):
+                                for event in timeline:
+                                    event_date = event.get('date', 'Unknown')
+                                    event_desc = event.get('event', 'No description')
+                                    st.markdown(f"**{event_date}**")
+                                    st.text(event_desc)
+                                    st.markdown("---")
+
+                    else:
+                        # No catalyst
+                        st.markdown(f"""
+                            <div style="border: 2px solid #e0e0e0; border-radius: 8px;
+                                        padding: 12px; background-color: #f5f5f5; margin-bottom: 16px;">
+                                <h4 style="margin: 0 0 8px 0; color: #666;">{group}</h4>
+                                <p style="margin: 0; font-size: 12px; color: #999;">
+                                    No catalyst available
+                                </p>
+                            </div>
+                        """, unsafe_allow_html=True)
+
+                        st.markdown("*No recent catalyst data*")
+                        st.text("")
+                        st.text("")
+
+
+# ===== TAB 2: PDF REPORTS =====
+
+with tab2:
     if not reports_data:
         st.warning('No reports found in the data file.')
         st.info('Run the PDF processor to generate reports.')
@@ -30,7 +207,12 @@ try:
         all_sources = sorted(list(set(report.get('report_source', 'Unknown') for report in reports_data)))
 
         # Sidebar filters
-        st.sidebar.subheader('Filters')
+        st.sidebar.markdown("""
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+                <h3 style="color: white; margin: 0; font-size: 16px;">PDF Reports Filters</h3>
+            </div>
+        """, unsafe_allow_html=True)
 
         # Source filter
         selected_sources = st.sidebar.multiselect(
@@ -123,9 +305,7 @@ try:
                     if news.strip():
                         st.markdown(f"### {commodity}")
                         # Escape markdown special characters
-                        # Replace $ with \$ to prevent LaTeX rendering
                         news_escaped = news.replace('$', r'\$')
-                        # Escape ~ to prevent strikethrough (e.g., ~95% should not be strikethrough)
                         news_escaped = news_escaped.replace('~', r'\~')
                         st.markdown(news_escaped)
                         st.markdown("---")
@@ -136,7 +316,3 @@ try:
             st.sidebar.divider()
             st.sidebar.caption(f"Filtered reports: {len(filtered_reports)}")
             st.sidebar.caption(f"Total reports: {len(reports_data)}")
-
-except Exception as e:
-    st.error(f"Error loading reports from MongoDB: {e}")
-    st.info('Please ensure MongoDB is running and the reports collection has been migrated.')
