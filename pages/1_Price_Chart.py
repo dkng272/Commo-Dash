@@ -323,7 +323,7 @@ if len(available_items) > 0:
                 display_mode = st.radio(
                     "Display Mode",
                     options=['Normalized (Base 100)', 'Absolute Prices'],
-                    index=0,
+                    index=1,
                     horizontal=False
                 )
 

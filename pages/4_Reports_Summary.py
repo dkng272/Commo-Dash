@@ -54,12 +54,12 @@ with tab1:
     """, unsafe_allow_html=True)
 
     # Search box
-    search_query = st.sidebar.text_input("🔍 Search commodity", placeholder="e.g., Iron Ore")
+    search_query = st.sidebar.text_input("Search commodity", placeholder="e.g., Iron Ore")
 
     # Direction filter
     direction_filter = st.sidebar.radio(
         "Filter by Direction",
-        options=["All", "Bullish 📈", "Bearish 📉", "Both ↔️"],
+        options=["All", "Bullish", "Bearish", "Both"],
         index=0
     )
 
@@ -154,11 +154,11 @@ with tab1:
 
                         # Apply direction filter
                         if direction_filter != "All":
-                            if direction_filter == "Bullish 📈" and direction_emoji != "📈":
+                            if direction_filter == "Bullish" and direction_emoji != "📈":
                                 continue
-                            if direction_filter == "Bearish 📉" and direction_emoji != "📉":
+                            if direction_filter == "Bearish" and direction_emoji != "📉":
                                 continue
-                            if direction_filter == "Both ↔️" and direction_emoji != "↔️":
+                            if direction_filter == "Both" and direction_emoji != "↔️":
                                 continue
 
                         # Display card header
