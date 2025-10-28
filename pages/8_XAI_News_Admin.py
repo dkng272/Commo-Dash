@@ -555,6 +555,10 @@ with tab3:
     if not BATCH_SEARCH_AVAILABLE:
         st.error("❌ Batch search module not available. Cannot calculate directions.")
     else:
+        # Initialize session state for backfill data
+        if 'backfill_analysis' not in st.session_state:
+            st.session_state.backfill_analysis = None
+
         # Analyze button
         if st.button("📊 Analyze Existing Catalysts", type="secondary", use_container_width=True):
             with st.spinner("Loading catalysts and price data..."):
@@ -662,90 +666,115 @@ with tab3:
                                 else:
                                     return [''] * len(row)
 
-                            # Display table with color coding
-                            st.dataframe(
-                                display_df.style.apply(highlight_direction, axis=1),
-                                use_container_width=True,
-                                height=400
-                            )
+                            # Store in session state
+                            st.session_state.backfill_analysis = {
+                                'display_df': display_df,
+                                'analysis_data': analysis_data,
+                                'catalysts_without_direction': catalysts_without_direction,
+                                'highlight_function': highlight_direction
+                            }
 
-                            # Count ready catalysts
-                            ready_catalysts = [d for d in analysis_data if d.get('Status') == '✅ Ready']
+                            st.success(f"✅ Analysis complete: Found {len(catalysts_without_direction)} catalysts without direction")
 
-                            col1, col2, col3 = st.columns(3)
-                            with col1:
-                                st.metric("Total Without Direction", len(catalysts_without_direction))
-                            with col2:
-                                st.metric("Ready to Update", len(ready_catalysts))
-                            with col3:
-                                failed = len(analysis_data) - len(ready_catalysts)
-                                st.metric("Cannot Update", failed)
-
-                            st.divider()
-
-                            # Update button
-                            if ready_catalysts:
-                                st.markdown(f"**Ready to update {len(ready_catalysts)} catalysts**")
-
-                                if st.button(f"💾 Update MongoDB ({len(ready_catalysts)} catalysts)",
-                                           type="primary", use_container_width=True):
-
-                                    progress_bar = st.progress(0)
-                                    status_text = st.empty()
-
-                                    update_results = []
-
-                                    for idx, catalyst_data in enumerate(ready_catalysts):
-                                        group = catalyst_data['Group']
-                                        direction = catalyst_data['Determined Direction']
-                                        catalyst_id = catalyst_data['_id']
-
-                                        # Update progress
-                                        progress = (idx + 1) / len(ready_catalysts)
-                                        progress_bar.progress(progress)
-                                        status_text.text(f"[{idx+1}/{len(ready_catalysts)}] Updating {group}...")
-
-                                        try:
-                                            # Update in MongoDB
-                                            success = update_catalyst_direction(group, direction)
-
-                                            update_results.append({
-                                                'group': group,
-                                                'direction': direction,
-                                                'success': success
-                                            })
-                                        except Exception as e:
-                                            update_results.append({
-                                                'group': group,
-                                                'direction': direction,
-                                                'success': False,
-                                                'error': str(e)
-                                            })
-
-                                    # Clear progress
-                                    progress_bar.empty()
-                                    status_text.empty()
-
-                                    # Show results
-                                    successful = [r for r in update_results if r['success']]
-                                    failed_updates = [r for r in update_results if not r['success']]
-
-                                    st.success(f"✅ Updated {len(successful)}/{len(update_results)} catalysts")
-
-                                    if failed_updates:
-                                        with st.expander(f"⚠️ Failed updates ({len(failed_updates)})"):
-                                            for r in failed_updates:
-                                                st.text(f"• {r['group']}: {r.get('error', 'Unknown error')}")
-
-                                    # Clear catalyst cache
-                                    st.cache_data.clear()
-
-                                    st.info("💡 Changes will appear on Dashboard within ~60 seconds.")
-                            else:
-                                st.warning("⚠️ No catalysts ready to update. Check the Status column above.")
                         else:
                             st.success("✅ All catalysts already have direction field!")
+                            st.session_state.backfill_analysis = None
 
                 except Exception as e:
                     st.error(f"❌ Error during analysis: {e}")
                     st.exception(e)
+                    st.session_state.backfill_analysis = None
+
+        # Display analysis results from session state
+        if st.session_state.backfill_analysis is not None:
+            backfill_data = st.session_state.backfill_analysis
+
+            st.markdown("---")
+            st.markdown("**Analysis Results:**")
+
+            # Display table with color coding
+            st.dataframe(
+                backfill_data['display_df'].style.apply(backfill_data['highlight_function'], axis=1),
+                use_container_width=True,
+                height=400
+            )
+
+            # Count ready catalysts
+            ready_catalysts = [d for d in backfill_data['analysis_data'] if d.get('Status') == '✅ Ready']
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Total Without Direction", len(backfill_data['catalysts_without_direction']))
+            with col2:
+                st.metric("Ready to Update", len(ready_catalysts))
+            with col3:
+                failed = len(backfill_data['analysis_data']) - len(ready_catalysts)
+                st.metric("Cannot Update", failed)
+
+            st.divider()
+
+            # Update button
+            if ready_catalysts:
+                st.markdown(f"**Ready to update {len(ready_catalysts)} catalysts**")
+
+                if st.button(f"💾 Update MongoDB ({len(ready_catalysts)} catalysts)",
+                           type="primary", use_container_width=True):
+
+                    from mongodb_utils import update_catalyst_direction
+
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+
+                    update_results = []
+
+                    for idx, catalyst_data in enumerate(ready_catalysts):
+                        group = catalyst_data['Group']
+                        direction = catalyst_data['Determined Direction']
+                        catalyst_id = catalyst_data['_id']
+
+                        # Update progress
+                        progress = (idx + 1) / len(ready_catalysts)
+                        progress_bar.progress(progress)
+                        status_text.text(f"[{idx+1}/{len(ready_catalysts)}] Updating {group}...")
+
+                        try:
+                            # Update in MongoDB
+                            success = update_catalyst_direction(group, direction)
+
+                            update_results.append({
+                                'group': group,
+                                'direction': direction,
+                                'success': success
+                            })
+                        except Exception as e:
+                            update_results.append({
+                                'group': group,
+                                'direction': direction,
+                                'success': False,
+                                'error': str(e)
+                            })
+
+                    # Clear progress
+                    progress_bar.empty()
+                    status_text.empty()
+
+                    # Show results
+                    successful = [r for r in update_results if r['success']]
+                    failed_updates = [r for r in update_results if not r['success']]
+
+                    st.success(f"✅ Updated {len(successful)}/{len(update_results)} catalysts")
+
+                    if failed_updates:
+                        with st.expander(f"⚠️ Failed updates ({len(failed_updates)})"):
+                            for r in failed_updates:
+                                st.text(f"• {r['group']}: {r.get('error', 'Unknown error')}")
+
+                    # Clear catalyst cache
+                    st.cache_data.clear()
+
+                    # Clear backfill analysis so user needs to re-analyze for fresh data
+                    st.session_state.backfill_analysis = None
+
+                    st.info("💡 Changes will appear on Dashboard within ~60 seconds.")
+            else:
+                st.warning("⚠️ No catalysts ready to update. Check the Status column above.")
