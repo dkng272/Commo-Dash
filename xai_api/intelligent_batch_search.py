@@ -41,23 +41,22 @@ from catalyst_search import search_catalysts
 def load_commodity_data():
     """
     Load commodity price data from SQL Server.
+
+    Uses GLOBAL 6-hour cached data when running in Streamlit (shared across all pages).
+    Falls back to direct SQL query for standalone command-line use.
+
     Returns DataFrame with columns: Ticker, Date, Price, Name, Group, Region, Sector
     """
     # Import here to avoid Streamlit dependency issues
-    from classification_loader import load_classification
-    from sql_connection import fetch_all_commodity_data
+    from classification_loader import load_raw_sql_data_cached, apply_classification
 
-    print("📊 Loading commodity price data from SQL Server...")
-    df_raw = fetch_all_commodity_data(start_date=None, parallel=True)
+    print("📊 Loading commodity price data...")
 
-    # Apply classification
-    group_map, region_map, sector_map = load_classification()
-    df = df_raw.copy()
+    # Use GLOBAL cached SQL data (6 hours cache, shared across all pages)
+    df_raw = load_raw_sql_data_cached(start_date=None)
 
-    mapping_column = 'Name' if 'Name' in df.columns else 'Ticker'
-    df['Group'] = df[mapping_column].map(group_map)
-    df['Region'] = df[mapping_column].map(region_map)
-    df['Sector'] = df[mapping_column].map(sector_map)
+    # Apply FRESH classification (60s MongoDB cache)
+    df = apply_classification(df_raw)
 
     # Filter out unclassified items
     df = df.dropna(subset=['Group', 'Region', 'Sector'])
