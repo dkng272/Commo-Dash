@@ -491,7 +491,169 @@ python pdf_processor.py
 
 ---
 
-**Last Updated**: 2025-10-25
+## Current Session Updates (2025-10-28)
+
+### 1. XAI News Intelligent Batch Search
+
+**Problem**: Manual individual searches for 28+ commodity groups time-consuming and inefficient.
+
+**Solution**: Created automated batch search system that determines search parameters based on price movements.
+
+**Logic**:
+```
+IF 5D movement > 3%   → Bullish direction, 7-day lookback
+IF 5D movement < -3%  → Bearish direction, 7-day lookback
+IF 5D within ±3%:
+   IF 10D > 3%   → Bullish direction, 14-day lookback
+   IF 10D < -3%  → Bearish direction, 14-day lookback
+   ELSE          → Both directions, 14-day lookback
+```
+
+**Implementation**:
+
+**A. Standalone Script** (`xai_api/intelligent_batch_search.py`):
+- Command-line tool for scheduled/automated runs
+- Uses GLOBAL 6-hour SQL cache for instant analysis
+- Calculates equal-weighted group indexes for 5D/10D movements
+- Respects 5-day cooldown periods
+- Saves direction (bullish/bearish/both) to MongoDB
+
+**Usage**:
+```bash
+# Dry run (preview only)
+python intelligent_batch_search.py
+
+# Run with MongoDB saving
+python intelligent_batch_search.py --save-to-mongodb
+
+# Test specific groups
+python intelligent_batch_search.py --groups "Iron Ore,HRC" --save-to-mongodb
+
+# Custom threshold
+python intelligent_batch_search.py --threshold 5.0 --save-to-mongodb
+```
+
+**B. UI Integration** (`pages/8_XAI_News_Admin.py`):
+- Added **"Batch Search" tab** to XAI News Admin page
+- Two-step workflow:
+  1. **Analyze All Groups**: Shows preview table with 5D/10D changes, determined direction/lookback, cooldown status
+  2. **Run Batch Search**: Executes searches with real-time progress bar
+- Color-coded table: Green (bullish), Red (bearish), Yellow (both)
+- Configurable threshold and delay settings
+- Stays on tab after execution (no page jump)
+
+**Key Features**:
+- ✅ Preview parameters before running (no surprises)
+- ✅ Uses cached SQL data (instant analysis)
+- ✅ Auto-saves to MongoDB with trigger type "auto"
+- ✅ Respects cooldown periods (skips groups in cooldown)
+- ✅ Progress tracking (shows current group being searched)
+- ✅ Clears only catalyst cache (preserves SQL/classification caches)
+
+### 2. Reports Summary Page Restructure
+
+**Changes to `pages/4_Reports_Summary.py`**:
+
+**New Tab Structure**:
+- **Tab 1: 💡 Price Catalysts** (moved from page 8, now primary)
+  - 3-column grid layout showing all commodity catalysts
+  - Sidebar filters: Search box, Direction (bullish/bearish/both), Sort by (alphabetical/recent/has catalyst)
+  - Color-coded cards based on direction
+  - Expandable timeline for each catalyst
+
+- **Tab 2: 📄 PDF Reports** (existing, now secondary)
+  - Filters moved inside tab (left column: 25%, content: 75%)
+  - Self-contained layout (no sidebar pollution)
+
+**Catalyst Card Design**:
+- **Header Box**: Compact (group name, emoji, date, trigger type)
+- **Summary Area**: Large text box (180px min-height, 500 char limit)
+  - Light gray background (#f9f9f9)
+  - Better line spacing (1.6)
+  - More readable
+- **Timeline**: Collapsible expander with event details
+
+**Direction Detection**:
+- **Primary**: Uses `direction` field from MongoDB (accurate, from price data)
+- **Fallback**: Keyword heuristic for old catalysts without direction field
+- **Keywords**:
+  - Bullish: rally, surge, increase, increased, bullish, gains, gain, rise, rising, up
+  - Bearish: decline, declined, fall, falling, bearish, drop, dropped, weaken, pressure, decrease, decreased, down
+
+### 3. MongoDB Schema Update
+
+**Catalyst Collection** (`commodity_dashboard.catalysts`):
+
+**New Field**: `direction` (optional)
+
+```json
+{
+  "commodity_group": "Iron Ore",
+  "summary": "Prices rallied on China stimulus...",
+  "timeline": [{"date": "2025-10-28", "event": "..."}],
+  "search_date": "2025-10-28",
+  "date_created": "2025-10-28T10:30:00Z",
+  "search_trigger": "auto",
+  "cooldown_until": "2025-11-02T10:30:00Z",
+  "direction": "bullish"  // NEW: "bullish", "bearish", or "both"
+}
+```
+
+**Updated Functions** (`mongodb_utils.py`):
+```python
+save_catalyst(
+    commodity_group: str,
+    summary: str,
+    timeline: List[Dict[str, str]],
+    search_trigger: str = "manual",
+    direction: Optional[str] = None  # NEW parameter
+) -> bool
+```
+
+**Benefits**:
+- Accurate direction based on actual price movements (not text interpretation)
+- No recalculation needed on display
+- Backward compatible (old catalysts work with keyword fallback)
+
+### 4. Cache Optimization
+
+**Updated `intelligent_batch_search.py`**:
+```python
+# Before: Direct SQL query every time
+df_raw = fetch_all_commodity_data(start_date=None, parallel=True)
+
+# After: Use GLOBAL 6-hour cache
+df_raw = load_raw_sql_data_cached(start_date=None)
+df = apply_classification(df_raw)
+```
+
+**Result**:
+- "Analyze All Groups" button: Instant (uses cached data)
+- No duplicate SQL queries when switching between pages
+- Consistent with 3-tier caching architecture
+
+### 5. UI/UX Improvements
+
+**Git Configuration**:
+- Fixed `.gitignore` to exclude `__pycache__/` folders everywhere (not just root)
+- Pattern: `__pycache__/` and `**/__pycache__/`
+
+**Summary**:
+- Two ways to trigger batch search: UI (interactive preview) or CLI (scheduled automation)
+- Price Catalysts now primary view on Reports Summary page
+- Direction stored in MongoDB for future accuracy
+- All changes backward compatible with existing catalysts
+
+---
+
+**Last Updated**: 2025-10-28
+
+**Recent Documentation Updates** (2025-10-28):
+- Added intelligent batch search implementation (UI + CLI)
+- Documented XAI News Admin batch search tab workflow
+- Updated Reports Summary page structure (Price Catalysts first)
+- MongoDB catalyst schema updated with direction field
+- Cache optimization for batch search (uses GLOBAL SQL cache)
 
 **Recent Documentation Updates** (2025-10-25):
 - Deep dive into actual caching implementation across all pages
@@ -501,6 +663,11 @@ python pdf_processor.py
 - Emphasized single SQL query pattern for entire app (no duplicate queries)
 
 **Current State**:
+- ✅ Intelligent batch search (automated parameter detection)
+- ✅ XAI News Admin batch search tab (preview + execute)
+- ✅ Price Catalysts primary view (Reports Summary page)
+- ✅ Direction stored in MongoDB (bullish/bearish/both)
+- ✅ Improved card layout (larger summary space)
 - ✅ Flexible timeframe selection (in-memory filtering)
 - ✅ st.fragment optimization (Price Chart page)
 - ✅ 150D lookback window (accurate metrics)
@@ -508,6 +675,6 @@ python pdf_processor.py
 - ✅ Dashboard quick view defaults (5D)
 - ✅ Group name optimization (12 groups renamed for AI routing)
 - ✅ AI prompt simplification (removed aliases, improved clarity)
-- ✅ SQL Server integration (1-hour cache)
+- ✅ SQL Server integration (6-hour GLOBAL cache)
 - ✅ MongoDB classifications (60s cache)
 - ✅ Two-layer caching architecture

@@ -306,7 +306,8 @@ def save_catalyst(
     commodity_group: str,
     summary: str,
     timeline: List[Dict[str, str]],
-    search_trigger: str = "manual"
+    search_trigger: str = "manual",
+    direction: Optional[str] = None
 ) -> bool:
     """
     Save new catalyst for a commodity group (creates new document)
@@ -316,6 +317,7 @@ def save_catalyst(
     - summary: 1-2 sentence summary of catalysts
     - timeline: List of {"date": "YYYY-MM-DD", "event": "..."} dicts
     - search_trigger: "auto" or "manual"
+    - direction: "bullish", "bearish", or "both" (optional)
 
     Returns:
     - bool: True if successful, False otherwise
@@ -338,6 +340,10 @@ def save_catalyst(
             "search_trigger": search_trigger,
             "cooldown_until": cooldown_until.isoformat()
         }
+
+        # Add direction if provided
+        if direction:
+            new_catalyst["direction"] = direction
 
         # Insert new document
         collection.insert_one(new_catalyst)

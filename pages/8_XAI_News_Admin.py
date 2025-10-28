@@ -461,11 +461,13 @@ with tab2:
                                 summary = search_result.get("summary", "")
                                 timeline = search_result.get("timeline", [])
 
+                                # Save with direction from analysis
                                 success = save_catalyst(
                                     commodity_group=group,
                                     summary=summary,
                                     timeline=timeline,
-                                    search_trigger="auto"
+                                    search_trigger="auto",
+                                    direction=row['Direction']
                                 )
 
                                 results.append({

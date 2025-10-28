@@ -127,17 +127,30 @@ with tab1:
                         trigger_type = catalyst.get('search_trigger', 'Unknown')
                         timeline = catalyst.get('timeline', [])
 
-                        # Determine direction from summary keywords (simple heuristic)
-                        summary_lower = summary.lower()
-                        if any(word in summary_lower for word in ['rally', 'surge', 'increase', 'bullish', 'gains', 'rise']):
+                        # Determine direction from stored field or fallback to heuristic
+                        stored_direction = catalyst.get('direction')
+
+                        if stored_direction == 'bullish':
                             direction_emoji = "📈"
                             border_color = "#d4edda"
-                        elif any(word in summary_lower for word in ['decline', 'fall', 'bearish', 'drop', 'weaken', 'pressure']):
+                        elif stored_direction == 'bearish':
                             direction_emoji = "📉"
                             border_color = "#f8d7da"
-                        else:
+                        elif stored_direction == 'both':
                             direction_emoji = "↔️"
                             border_color = "#fff3cd"
+                        else:
+                            # Fallback: keyword heuristic for old catalysts without direction field
+                            summary_lower = summary.lower()
+                            if any(word in summary_lower for word in ['rally', 'surge', 'increase', 'increased', 'bullish', 'gains', 'gain', 'rise', 'rising', 'up']):
+                                direction_emoji = "📈"
+                                border_color = "#d4edda"
+                            elif any(word in summary_lower for word in ['decline', 'declined', 'fall', 'falling', 'bearish', 'drop', 'dropped', 'weaken', 'pressure', 'decrease', 'decreased', 'down']):
+                                direction_emoji = "📉"
+                                border_color = "#f8d7da"
+                            else:
+                                direction_emoji = "↔️"
+                                border_color = "#fff3cd"
 
                         # Apply direction filter
                         if direction_filter != "All":
@@ -152,7 +165,7 @@ with tab1:
                         st.markdown(f"""
                             <div style="border: 2px solid {border_color}; border-radius: 8px;
                                         padding: 12px; background-color: {border_color}20; margin-bottom: 8px;">
-                                <h4 style="margin: 0 0 4px 0;">{direction_emoji} {group}</h4>
+                                <h4 style="margin: 0 0 4px 0;">{group}</h4>
                                 <p style="margin: 0; font-size: 12px; color: #666;">
                                     {search_date} | {trigger_type.capitalize()}
                                 </p>
@@ -174,7 +187,7 @@ with tab1:
 
                         # Timeline expander
                         if timeline:
-                            with st.expander(f"📅 View Timeline ({len(timeline)} events)"):
+                            with st.expander(f"View Timeline ({len(timeline)} events)"):
                                 for event in timeline:
                                     event_date = event.get('date', 'Unknown')
                                     event_desc = event.get('event', 'No description')
