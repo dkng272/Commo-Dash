@@ -178,11 +178,11 @@ with tab1:
                         else:
                             summary_display = summary
 
-                        st.markdown(f"**Summary:**")
                         # Use markdown container with more space for summary
                         st.markdown(f"""<div style='border: 2px solid #e0e0e0; border-radius: 8px;
                                      padding: 12px; background-color: #f9f9f9;
                                      min-height: 180px; margin-bottom: 12px; line-height: 1.6;'>
+                            <strong>Summary:</strong><br/><br/>
                             {summary_display}
                         </div>""", unsafe_allow_html=True)
 
