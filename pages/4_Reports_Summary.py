@@ -148,26 +148,29 @@ with tab1:
                             if direction_filter == "Both ↔️" and direction_emoji != "↔️":
                                 continue
 
-                        # Display card
+                        # Display card header
                         st.markdown(f"""
                             <div style="border: 2px solid {border_color}; border-radius: 8px;
-                                        padding: 16px; background-color: {border_color}20; margin-bottom: 16px;
-                                        min-height: 280px;">
-                                <h4 style="margin: 0 0 8px 0;">{direction_emoji} {group}</h4>
-                                <p style="margin: 0 0 12px 0; font-size: 12px; color: #666;">
+                                        padding: 12px; background-color: {border_color}20; margin-bottom: 8px;">
+                                <h4 style="margin: 0 0 4px 0;">{direction_emoji} {group}</h4>
+                                <p style="margin: 0; font-size: 12px; color: #666;">
                                     {search_date} | {trigger_type.capitalize()}
                                 </p>
                             </div>
                         """, unsafe_allow_html=True)
 
-                        # Summary (show more text, truncate at 300 chars)
-                        if len(summary) > 300:
-                            summary_display = summary[:300] + "..."
+                        # Summary (show more text, no truncation or minimal truncation)
+                        if len(summary) > 500:
+                            summary_display = summary[:500] + "..."
                         else:
                             summary_display = summary
 
                         st.markdown(f"**Summary:**")
-                        st.markdown(f"<div style='min-height: 120px;'>{summary_display}</div>", unsafe_allow_html=True)
+                        # Use markdown container with more space for summary
+                        st.markdown(f"""<div style='padding: 8px; background-color: #f9f9f9; border-radius: 4px;
+                                     min-height: 180px; margin-bottom: 12px; line-height: 1.6;'>
+                            {summary_display}
+                        </div>""", unsafe_allow_html=True)
 
                         # Timeline expander
                         if timeline:
@@ -183,15 +186,14 @@ with tab1:
                         # No catalyst
                         st.markdown(f"""
                             <div style="border: 2px solid #e0e0e0; border-radius: 8px;
-                                        padding: 16px; background-color: #f5f5f5; margin-bottom: 16px;
-                                        min-height: 280px; display: flex; flex-direction: column;
-                                        justify-content: center; align-items: center;">
-                                <h4 style="margin: 0 0 8px 0; color: #666;">{group}</h4>
+                                        padding: 12px; background-color: #f5f5f5; margin-bottom: 8px;">
+                                <h4 style="margin: 0 0 4px 0; color: #666;">{group}</h4>
                                 <p style="margin: 0; font-size: 12px; color: #999;">
                                     No catalyst available
                                 </p>
                             </div>
                         """, unsafe_allow_html=True)
+                        st.markdown("<div style='min-height: 180px;'></div>", unsafe_allow_html=True)
 
 
 # ===== TAB 2: PDF REPORTS =====
@@ -247,12 +249,15 @@ with tab2:
                 and report.get('report_series', 'Unknown') in selected_series
             ]
 
+            # Initialize variables
+            report_options = []
+            selected_display = None
+
             if filtered_reports:
                 # Sort by date (newest first)
                 filtered_reports.sort(key=lambda x: x.get('report_date', ''), reverse=True)
 
                 # Create display list
-                report_options = []
                 for report in filtered_reports:
                     date = report.get('report_date', 'Unknown')
                     source = report.get('report_source', 'Unknown')
@@ -276,7 +281,7 @@ with tab2:
                 st.caption(f"Total: {len(reports_data)}")
 
         with content_col:
-            if not filtered_reports:
+            if not filtered_reports or not selected_display:
                 st.warning('No reports match the selected filters.')
                 st.info('Try adjusting your filter selections.')
             else:
