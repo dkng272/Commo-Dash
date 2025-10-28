@@ -401,3 +401,52 @@ def can_auto_trigger(commodity_group: str) -> Tuple[bool, str]:
     except Exception as e:
         # If error parsing date, allow trigger
         return True, f"Cooldown check error: {e}"
+
+def update_catalyst_direction(commodity_group: str, direction: str) -> bool:
+    """
+    Update the direction field for the LATEST catalyst of a commodity group
+
+    Parameters:
+    - commodity_group: Name of the commodity group
+    - direction: "bullish", "bearish", or "both"
+
+    Returns:
+    - bool: True if successful, False otherwise
+    """
+    try:
+        db = get_database()
+        collection = db["catalysts"]
+
+        # Find the latest catalyst for this group
+        latest_catalyst = collection.find_one(
+            {"commodity_group": commodity_group},
+            sort=[("date_created", -1)]
+        )
+
+        if not latest_catalyst:
+            msg = f"No catalyst found for {commodity_group}"
+            if HAS_STREAMLIT:
+                st.warning(msg)
+            else:
+                print(msg)
+            return False
+
+        # Update the direction field
+        result = collection.update_one(
+            {"_id": latest_catalyst["_id"]},
+            {"$set": {"direction": direction}}
+        )
+
+        # Clear the cache so updated data is loaded
+        if HAS_STREAMLIT and hasattr(load_catalysts, 'clear'):
+            load_catalysts.clear()
+
+        return result.modified_count > 0
+
+    except Exception as e:
+        msg = f"Error updating catalyst direction: {e}"
+        if HAS_STREAMLIT:
+            st.error(msg)
+        else:
+            print(msg)
+        return False

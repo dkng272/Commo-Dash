@@ -56,9 +56,42 @@ def load_commodity_groups():
 
 commodity_groups = load_commodity_groups()
 
+# ===== Helper Functions =====
+
+def get_direction_emoji(direction):
+    """Get emoji for catalyst direction"""
+    if direction == "bullish":
+        return "📈"
+    elif direction == "bearish":
+        return "📉"
+    elif direction == "both":
+        return "↔️"
+    else:
+        return ""
+
+# ===== Shared Configuration =====
+
+st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+        <h3 style="color: white; margin: 0; font-size: 16px;">Configuration</h3>
+    </div>
+""", unsafe_allow_html=True)
+
+threshold = st.number_input(
+    "Movement Threshold (%) - Used by Batch Search and Direction Backfill",
+    min_value=1.0,
+    max_value=10.0,
+    value=3.0,
+    step=0.5,
+    help="Percentage threshold for significant movement"
+)
+
+st.divider()
+
 # ===== TABS =====
 
-tab1, tab2 = st.tabs(["🔍 Individual Search", "🚀 Batch Search"])
+tab1, tab2, tab3 = st.tabs(["🔍 Individual Search", "🚀 Batch Search", "🔧 Direction Backfill"])
 
 # ===== TAB 1: Individual Search =====
 
@@ -282,25 +315,14 @@ with tab2:
         st.divider()
 
         # Configuration
-        st.markdown("**Configuration:**")
-        col_threshold, col_delay = st.columns(2)
-        with col_threshold:
-            threshold = st.number_input(
-                "Movement Threshold (%)",
-                min_value=1.0,
-                max_value=10.0,
-                value=3.0,
-                step=0.5,
-                help="Percentage threshold for significant movement"
-            )
-        with col_delay:
-            delay_seconds = st.number_input(
-                "Delay Between Searches (seconds)",
-                min_value=3,
-                max_value=30,
-                value=5,
-                help="Delay between API calls to avoid rate limits"
-            )
+        st.markdown("**Batch Search Settings:**")
+        delay_seconds = st.number_input(
+            "Delay Between Searches (seconds)",
+            min_value=3,
+            max_value=30,
+            value=5,
+            help="Delay between API calls to avoid rate limits"
+        )
 
         check_cooldown = st.checkbox("Check cooldown periods (skip groups in cooldown)", value=True)
 
@@ -351,14 +373,6 @@ with tab2:
             st.markdown(f"**Analysis Results ({len(movements)} groups):**")
 
             # Add emoji column for direction
-            def get_direction_emoji(direction):
-                if direction == "bullish":
-                    return "📈"
-                elif direction == "bearish":
-                    return "📉"
-                else:
-                    return "↔️"
-
             movements['📊'] = movements['Direction'].apply(get_direction_emoji)
 
             # Format display dataframe
@@ -515,3 +529,223 @@ with tab2:
                     st.session_state.batch_search_running = False
 
                     st.info("💡 New catalysts will appear on Dashboard within ~60 seconds.")
+
+# ===== TAB 3: Direction Backfill =====
+
+with tab3:
+    st.markdown("""
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+            <h3 style="color: white; margin: 0; font-size: 18px;">Backfill Direction Field</h3>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    **Purpose:** Add `direction` field to existing catalysts in MongoDB based on price data.
+
+    This utility will:
+    1. Load all catalysts from MongoDB
+    2. Identify catalysts missing the `direction` field
+    3. Calculate direction based on 5D/10D price movements around the search date
+    4. Update MongoDB with the determined direction
+    """)
+
+    st.divider()
+
+    if not BATCH_SEARCH_AVAILABLE:
+        st.error("❌ Batch search module not available. Cannot calculate directions.")
+    else:
+        # Analyze button
+        if st.button("📊 Analyze Existing Catalysts", type="secondary", use_container_width=True):
+            with st.spinner("Loading catalysts and price data..."):
+                try:
+                    from mongodb_utils import load_catalysts, update_catalyst_direction
+                    import pandas as pd
+
+                    # Load all catalysts
+                    all_catalysts = load_catalysts()
+
+                    if not all_catalysts:
+                        st.warning("No catalysts found in database.")
+                    else:
+                        # Load commodity data using batch search function
+                        df = load_commodity_data()
+
+                        # Calculate group movements using batch search function
+                        movements = calculate_group_movements(df)
+
+                        # Determine search parameters for all groups
+                        movements['Direction'], movements['Lookback_Days'], movements['Reason'] = zip(
+                            *movements.apply(lambda row: determine_search_params(row, threshold), axis=1)
+                        )
+
+                        # Create lookup dict for group directions
+                        group_direction_map = dict(zip(movements['Group'], movements['Direction']))
+                        group_5d_map = dict(zip(movements['Group'], movements['5D_Change']))
+                        group_10d_map = dict(zip(movements['Group'], movements['10D_Change']))
+
+                        # Find catalysts without direction field
+                        catalysts_without_direction = [
+                            c for c in all_catalysts
+                            if c.get('direction') is None or c.get('direction') == ''
+                        ]
+
+                        st.info(f"Found {len(catalysts_without_direction)} catalysts without direction field (out of {len(all_catalysts)} total)")
+
+                        if catalysts_without_direction:
+                            st.divider()
+                            st.markdown("**Catalysts Missing Direction:**")
+
+                            # Create analysis table
+                            analysis_data = []
+
+                            for catalyst in catalysts_without_direction:
+                                group = catalyst.get('commodity_group')
+                                search_date_str = catalyst.get('search_date', '')
+
+                                if not group or not search_date_str:
+                                    analysis_data.append({
+                                        'Group': group or 'Unknown',
+                                        'Search Date': search_date_str or 'Unknown',
+                                        '5D Change (%)': 'N/A',
+                                        '10D Change (%)': 'N/A',
+                                        'Determined Direction': 'N/A',
+                                        'Status': '❌ Missing data'
+                                    })
+                                    continue
+
+                                # Look up direction from current group movements
+                                if group in group_direction_map:
+                                    direction = group_direction_map[group]
+                                    change_5d = group_5d_map[group]
+                                    change_10d = group_10d_map[group]
+
+                                    analysis_data.append({
+                                        'Group': group,
+                                        'Search Date': search_date_str,
+                                        '5D Change (%)': f"{change_5d:+.1f}",
+                                        '10D Change (%)': f"{change_10d:+.1f}",
+                                        'Determined Direction': direction,
+                                        'Status': '✅ Ready',
+                                        '_id': str(catalyst.get('_id'))
+                                    })
+                                else:
+                                    analysis_data.append({
+                                        'Group': group,
+                                        'Search Date': search_date_str,
+                                        '5D Change (%)': 'N/A',
+                                        '10D Change (%)': 'N/A',
+                                        'Determined Direction': 'N/A',
+                                        'Status': '❌ No price data'
+                                    })
+
+                            # Create DataFrame for display
+                            analysis_df = pd.DataFrame(analysis_data)
+
+                            # Add emoji column
+                            analysis_df['📊'] = analysis_df['Determined Direction'].apply(get_direction_emoji)
+
+                            # Reorder columns
+                            display_columns = ['📊', 'Group', 'Search Date', '5D Change (%)', '10D Change (%)',
+                                             'Determined Direction', 'Status']
+                            display_df = analysis_df[display_columns].copy()
+
+                            # Color code by direction (same as batch search)
+                            def highlight_direction(row):
+                                direction = row['Determined Direction']
+                                if direction == 'bullish':
+                                    return ['background-color: #d4edda'] * len(row)
+                                elif direction == 'bearish':
+                                    return ['background-color: #f8d7da'] * len(row)
+                                elif direction == 'both':
+                                    return ['background-color: #fff3cd'] * len(row)
+                                else:
+                                    return [''] * len(row)
+
+                            # Display table with color coding
+                            st.dataframe(
+                                display_df.style.apply(highlight_direction, axis=1),
+                                use_container_width=True,
+                                height=400
+                            )
+
+                            # Count ready catalysts
+                            ready_catalysts = [d for d in analysis_data if d.get('Status') == '✅ Ready']
+
+                            col1, col2, col3 = st.columns(3)
+                            with col1:
+                                st.metric("Total Without Direction", len(catalysts_without_direction))
+                            with col2:
+                                st.metric("Ready to Update", len(ready_catalysts))
+                            with col3:
+                                failed = len(analysis_data) - len(ready_catalysts)
+                                st.metric("Cannot Update", failed)
+
+                            st.divider()
+
+                            # Update button
+                            if ready_catalysts:
+                                st.markdown(f"**Ready to update {len(ready_catalysts)} catalysts**")
+
+                                if st.button(f"💾 Update MongoDB ({len(ready_catalysts)} catalysts)",
+                                           type="primary", use_container_width=True):
+
+                                    progress_bar = st.progress(0)
+                                    status_text = st.empty()
+
+                                    update_results = []
+
+                                    for idx, catalyst_data in enumerate(ready_catalysts):
+                                        group = catalyst_data['Group']
+                                        direction = catalyst_data['Determined Direction']
+                                        catalyst_id = catalyst_data['_id']
+
+                                        # Update progress
+                                        progress = (idx + 1) / len(ready_catalysts)
+                                        progress_bar.progress(progress)
+                                        status_text.text(f"[{idx+1}/{len(ready_catalysts)}] Updating {group}...")
+
+                                        try:
+                                            # Update in MongoDB
+                                            success = update_catalyst_direction(group, direction)
+
+                                            update_results.append({
+                                                'group': group,
+                                                'direction': direction,
+                                                'success': success
+                                            })
+                                        except Exception as e:
+                                            update_results.append({
+                                                'group': group,
+                                                'direction': direction,
+                                                'success': False,
+                                                'error': str(e)
+                                            })
+
+                                    # Clear progress
+                                    progress_bar.empty()
+                                    status_text.empty()
+
+                                    # Show results
+                                    successful = [r for r in update_results if r['success']]
+                                    failed_updates = [r for r in update_results if not r['success']]
+
+                                    st.success(f"✅ Updated {len(successful)}/{len(update_results)} catalysts")
+
+                                    if failed_updates:
+                                        with st.expander(f"⚠️ Failed updates ({len(failed_updates)})"):
+                                            for r in failed_updates:
+                                                st.text(f"• {r['group']}: {r.get('error', 'Unknown error')}")
+
+                                    # Clear catalyst cache
+                                    st.cache_data.clear()
+
+                                    st.info("💡 Changes will appear on Dashboard within ~60 seconds.")
+                            else:
+                                st.warning("⚠️ No catalysts ready to update. Check the Status column above.")
+                        else:
+                            st.success("✅ All catalysts already have direction field!")
+
+                except Exception as e:
+                    st.error(f"❌ Error during analysis: {e}")
+                    st.exception(e)
