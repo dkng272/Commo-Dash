@@ -1,5 +1,4 @@
 import streamlit as st
-from datetime import datetime
 
 st.set_page_config(layout="wide", initial_sidebar_state="expanded", page_title="Market News Summary")
 
@@ -152,22 +151,23 @@ with tab1:
                         # Display card
                         st.markdown(f"""
                             <div style="border: 2px solid {border_color}; border-radius: 8px;
-                                        padding: 12px; background-color: {border_color}20; margin-bottom: 16px;">
+                                        padding: 16px; background-color: {border_color}20; margin-bottom: 16px;
+                                        min-height: 280px;">
                                 <h4 style="margin: 0 0 8px 0;">{direction_emoji} {group}</h4>
-                                <p style="margin: 0; font-size: 12px; color: #666;">
+                                <p style="margin: 0 0 12px 0; font-size: 12px; color: #666;">
                                     {search_date} | {trigger_type.capitalize()}
                                 </p>
                             </div>
                         """, unsafe_allow_html=True)
 
-                        # Summary (truncate if too long)
-                        if len(summary) > 150:
-                            summary_display = summary[:150] + "..."
+                        # Summary (show more text, truncate at 300 chars)
+                        if len(summary) > 300:
+                            summary_display = summary[:300] + "..."
                         else:
                             summary_display = summary
 
                         st.markdown(f"**Summary:**")
-                        st.text(summary_display)
+                        st.markdown(f"<div style='min-height: 120px;'>{summary_display}</div>", unsafe_allow_html=True)
 
                         # Timeline expander
                         if timeline:
@@ -183,17 +183,15 @@ with tab1:
                         # No catalyst
                         st.markdown(f"""
                             <div style="border: 2px solid #e0e0e0; border-radius: 8px;
-                                        padding: 12px; background-color: #f5f5f5; margin-bottom: 16px;">
+                                        padding: 16px; background-color: #f5f5f5; margin-bottom: 16px;
+                                        min-height: 280px; display: flex; flex-direction: column;
+                                        justify-content: center; align-items: center;">
                                 <h4 style="margin: 0 0 8px 0; color: #666;">{group}</h4>
                                 <p style="margin: 0; font-size: 12px; color: #999;">
                                     No catalyst available
                                 </p>
                             </div>
                         """, unsafe_allow_html=True)
-
-                        st.markdown("*No recent catalyst data*")
-                        st.text("")
-                        st.text("")
 
 
 # ===== TAB 2: PDF REPORTS =====
@@ -203,116 +201,121 @@ with tab2:
         st.warning('No reports found in the data file.')
         st.info('Run the PDF processor to generate reports.')
     else:
-        # Extract unique sources
-        all_sources = sorted(list(set(report.get('report_source', 'Unknown') for report in reports_data)))
+        # Create two-column layout: filters on left, content on right
+        filter_col, content_col = st.columns([1, 3])
 
-        # Sidebar filters
-        st.sidebar.markdown("""
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                        padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-                <h3 style="color: white; margin: 0; font-size: 16px;">PDF Reports Filters</h3>
-            </div>
-        """, unsafe_allow_html=True)
+        with filter_col:
+            st.markdown("""
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
+                    <h3 style="color: white; margin: 0; font-size: 16px;">Filters</h3>
+                </div>
+            """, unsafe_allow_html=True)
 
-        # Source filter
-        selected_sources = st.sidebar.multiselect(
-            'Report Source',
-            options=all_sources,
-            default=all_sources,
-            help='Filter by report source (e.g., JPM, HSBC, etc.)'
-        )
+            # Extract unique sources
+            all_sources = sorted(list(set(report.get('report_source', 'Unknown') for report in reports_data)))
 
-        # Get series that belong to selected sources
-        available_series = sorted(list(set(
-            report.get('report_series', 'Unknown')
-            for report in reports_data
-            if report.get('report_source', 'Unknown') in selected_sources
-        )))
-
-        # Series filter (only show series from selected sources)
-        selected_series = st.sidebar.multiselect(
-            'Report Name',
-            options=available_series,
-            default=available_series,
-            help='Filter by report name/series (e.g., GlobalCommodities, ChemAgri, etc.)'
-        )
-
-        st.sidebar.divider()
-
-        # Filter reports
-        filtered_reports = [
-            report for report in reports_data
-            if report.get('report_source', 'Unknown') in selected_sources
-            and report.get('report_series', 'Unknown') in selected_series
-        ]
-
-        if not filtered_reports:
-            st.warning('No reports match the selected filters.')
-            st.info('Try adjusting your filter selections.')
-        else:
-            # Sort by date (newest first)
-            filtered_reports.sort(key=lambda x: x.get('report_date', ''), reverse=True)
-
-            # Create display list
-            report_options = []
-            for report in filtered_reports:
-                date = report.get('report_date', 'Unknown')
-                source = report.get('report_source', 'Unknown')
-                series = report.get('report_series', 'Unknown')
-                display_text = f"{source} - {series} - {date}"
-                report_options.append(display_text)
-
-            # Report selection
-            st.sidebar.subheader('Select Report')
-            selected_display = st.sidebar.radio(
-                'Available Reports',
-                options=report_options,
-                index=0
+            # Source filter
+            selected_sources = st.multiselect(
+                'Report Source',
+                options=all_sources,
+                default=all_sources,
+                help='Filter by report source (e.g., JPM, HSBC, etc.)'
             )
 
-            # Get selected report
-            selected_idx = report_options.index(selected_display)
-            selected_report = filtered_reports[selected_idx]
+            # Get series that belong to selected sources
+            available_series = sorted(list(set(
+                report.get('report_series', 'Unknown')
+                for report in reports_data
+                if report.get('report_source', 'Unknown') in selected_sources
+            )))
 
-            # Display report metadata
-            st.divider()
-
-            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
-            with col1:
-                st.subheader(f"📄 {selected_report.get('report_source', 'Unknown')} - {selected_report.get('report_series', 'Unknown')}")
-            with col2:
-                st.caption(f"Report Date: {selected_report.get('report_date', 'Unknown')}")
-            with col3:
-                st.caption(f"Type: {selected_report.get('report_type', 'Unknown')}")
-            with col4:
-                upload_date = selected_report.get('date_uploaded', 'N/A')
-                st.caption(f"Uploaded: {upload_date}")
+            # Series filter (only show series from selected sources)
+            selected_series = st.multiselect(
+                'Report Name',
+                options=available_series,
+                default=available_series,
+                help='Filter by report name/series (e.g., GlobalCommodities, ChemAgri, etc.)'
+            )
 
             st.divider()
 
-            # Display commodity news
-            commodity_news = selected_report.get('commodity_news', {})
+            # Filter reports
+            filtered_reports = [
+                report for report in reports_data
+                if report.get('report_source', 'Unknown') in selected_sources
+                and report.get('report_series', 'Unknown') in selected_series
+            ]
 
-            if commodity_news:
-                # Count non-empty entries
-                non_empty = {k: v for k, v in commodity_news.items() if v.strip()}
+            if filtered_reports:
+                # Sort by date (newest first)
+                filtered_reports.sort(key=lambda x: x.get('report_date', ''), reverse=True)
 
-                st.markdown(f"**{len(non_empty)} commodities** covered in this report")
+                # Create display list
+                report_options = []
+                for report in filtered_reports:
+                    date = report.get('report_date', 'Unknown')
+                    source = report.get('report_source', 'Unknown')
+                    series = report.get('report_series', 'Unknown')
+                    display_text = f"{date} - {source}"
+                    report_options.append(display_text)
+
+                # Report selection
+                st.markdown("**Select Report:**")
+                selected_display = st.radio(
+                    'Available Reports',
+                    options=report_options,
+                    index=0,
+                    label_visibility="collapsed"
+                )
+
                 st.divider()
 
-                # Display each commodity with news
-                for commodity, news in commodity_news.items():
-                    if news.strip():
-                        st.markdown(f"### {commodity}")
-                        # Escape markdown special characters
-                        news_escaped = news.replace('$', r'\$')
-                        news_escaped = news_escaped.replace('~', r'\~')
-                        st.markdown(news_escaped)
-                        st.markdown("---")
-            else:
-                st.info('No commodity news available for this report.')
+                # Show statistics
+                st.caption(f"Filtered: {len(filtered_reports)}")
+                st.caption(f"Total: {len(reports_data)}")
 
-            # Show statistics in sidebar
-            st.sidebar.divider()
-            st.sidebar.caption(f"Filtered reports: {len(filtered_reports)}")
-            st.sidebar.caption(f"Total reports: {len(reports_data)}")
+        with content_col:
+            if not filtered_reports:
+                st.warning('No reports match the selected filters.')
+                st.info('Try adjusting your filter selections.')
+            else:
+                # Get selected report
+                selected_idx = report_options.index(selected_display)
+                selected_report = filtered_reports[selected_idx]
+
+                # Display report metadata
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                with col1:
+                    st.subheader(f"📄 {selected_report.get('report_source', 'Unknown')} - {selected_report.get('report_series', 'Unknown')}")
+                with col2:
+                    st.caption(f"Report Date: {selected_report.get('report_date', 'Unknown')}")
+                with col3:
+                    st.caption(f"Type: {selected_report.get('report_type', 'Unknown')}")
+                with col4:
+                    upload_date = selected_report.get('date_uploaded', 'N/A')
+                    st.caption(f"Uploaded: {upload_date}")
+
+                st.divider()
+
+                # Display commodity news
+                commodity_news = selected_report.get('commodity_news', {})
+
+                if commodity_news:
+                    # Count non-empty entries
+                    non_empty = {k: v for k, v in commodity_news.items() if v.strip()}
+
+                    st.markdown(f"**{len(non_empty)} commodities** covered in this report")
+                    st.divider()
+
+                    # Display each commodity with news
+                    for commodity, news in commodity_news.items():
+                        if news.strip():
+                            st.markdown(f"### {commodity}")
+                            # Escape markdown special characters
+                            news_escaped = news.replace('$', r'\$')
+                            news_escaped = news_escaped.replace('~', r'\~')
+                            st.markdown(news_escaped)
+                            st.markdown("---")
+                else:
+                    st.info('No commodity news available for this report.')
