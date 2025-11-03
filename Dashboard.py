@@ -81,7 +81,7 @@ def build_indexes(df):
         combined_df = combined_df.merge(temp_df, on='Date', how='outer')
 
     combined_df = combined_df.sort_values('Date')
-    combined_df = combined_df.ffill()
+    # Removed ffill() - use raw indexes for performance calculations to avoid stale forward-filled data
 
     # Regional indexes
     regional_indexes = create_regional_indexes(df)
@@ -305,7 +305,9 @@ with tab1:
 
     summary_data = []
     for group in all_indexes.keys():
-        index_data = combined_df[group].dropna()
+        # Use raw index data (not forward-filled combined_df) for accurate performance metrics
+        index_df = all_indexes[group].sort_values('Date')
+        index_data = index_df['Index_Value']
 
         change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100 if len(index_data) >= 6 else 0
         change_10d = ((index_data.iloc[-1] / index_data.iloc[-11]) - 1) * 100 if len(index_data) >= 11 else 0

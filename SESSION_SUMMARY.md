@@ -646,7 +646,117 @@ df = apply_classification(df_raw)
 
 ---
 
-**Last Updated**: 2025-10-28
+## Current Session Updates (2025-11-03)
+
+### Performance Calculation Fix - Forward Fill Issue
+
+**Issue**: Discrepancy in 5D/10D performance metrics between Dashboard and XAI News Admin
+
+**Root Cause**: Forward-fill (`ffill()`) applied to merged dataframes used for performance calculations.
+
+#### The Problem
+
+**Code Pattern (BEFORE)**:
+```python
+# Create combined_df by merging all group indexes
+combined_df = all_indexes[first_group].copy()
+for group in all_indexes.keys()[1:]:
+    combined_df = combined_df.merge(temp_df, on='Date', how='outer')
+
+combined_df = combined_df.ffill()  # ⚠️ PROBLEM
+
+# Calculate performance
+index_data = combined_df[group].dropna()
+change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100
+```
+
+**Why This Failed**:
+1. **Outer merge creates union of all dates** across all commodity groups
+2. **Different commodities update on different schedules** (Oil: Daily, Metals: Daily/Weekly, Agricultural: Weekly/Monthly)
+3. **Forward fill carries stale values forward** into dates that don't exist for that commodity
+4. **Performance calculation uses wrong reference date** for "latest" value
+
+**Example**:
+```python
+# Iron Ore last updated: Dec 1, Coffee last updated: Dec 5
+# After outer merge + ffill:
+Date        Iron Ore    Coffee
+Dec 1       100         100
+Dec 2       100 ←stale  101
+Dec 3       100 ←stale  102
+Dec 4       100 ←stale  103
+Dec 5       100 ←stale  104
+
+# iloc[-1] for Iron Ore thinks it's Dec 5, but it's actually Dec 1's value!
+```
+
+#### Solution Implemented
+
+**Files Modified**:
+
+1. **Dashboard.py** (Line 84, Lines 308-315)
+   - Removed `combined_df.ffill()`
+   - Changed to use raw `all_indexes[group]`
+
+2. **pages/2_Group_Analysis.py** (Lines 83, 99, 150-152, 354-356)
+   - Removed `combined_df.ffill()` and `regional_combined_df.ffill()`
+   - Updated both main group and regional performance calculations
+
+3. **pages/3_Ticker_Analysis.py**
+   - ✅ Already correct (uses raw data, no ffill)
+
+**New Pattern (CORRECT)**:
+```python
+# Use raw index data directly
+index_df = all_indexes[group].sort_values('Date')
+index_data = index_df['Index_Value']
+change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100
+```
+
+**Old Pattern (WRONG)**:
+```python
+# Don't use forward-filled combined dataframes
+combined_df = combined_df.ffill()
+index_data = combined_df[group].dropna()
+change_5d = ((index_data.iloc[-1] / index_data.iloc[-6]) - 1) * 100
+```
+
+#### Documentation Updates
+
+Updated `CLAUDE.md`:
+- Added new section: "Performance Calculation Pattern (CRITICAL ⚠️)"
+- Added to Common Pitfalls: Item #7 about ffill issue
+- Added to Key Lessons: Note about using raw indexes
+- Updated Last Updated date to 2025-11-03
+
+#### Impact
+
+**Pages Affected**:
+- Dashboard.py - Market Movers section (Commodity Swings tab)
+- pages/2_Group_Analysis.py - Group metrics and regional metrics
+
+**User Impact**:
+- ✅ Performance metrics (5D, 10D, 50D, 150D) now show accurate values
+- ✅ No more discrepancies between Dashboard and XAI News Admin
+- ✅ Groups with stale data no longer appear artificially current
+
+#### Key Takeaways
+
+1. **Forward-fill is dangerous for performance metrics** when different time series have different update frequencies
+2. **Outer merge + ffill creates artificial dates** - merge creates all dates from all series, ffill treats gaps as if data existed
+3. **Always use source data for calculations** - go directly to `all_indexes[group]` instead of extracting from merged dataframes
+4. **Different data schedules matter** - in commodity markets, not everything updates simultaneously
+
+---
+
+**Last Updated**: 2025-11-03
+
+**Recent Documentation Updates** (2025-11-03):
+- Fixed forward-fill (ffill) issue in performance calculations
+- Removed ffill() from Dashboard.py and Group_Analysis.py
+- Updated all performance calculations to use raw indexes
+- Added Performance Calculation Pattern section to CLAUDE.md
+- Documented ffill pitfall with detailed examples
 
 **Recent Documentation Updates** (2025-10-28):
 - Added intelligent batch search implementation (UI + CLI)
@@ -663,6 +773,7 @@ df = apply_classification(df_raw)
 - Emphasized single SQL query pattern for entire app (no duplicate queries)
 
 **Current State**:
+- ✅ Performance calculation fix (no ffill for metrics) - **NEW 2025-11-03**
 - ✅ Intelligent batch search (automated parameter detection)
 - ✅ XAI News Admin batch search tab (preview + execute)
 - ✅ Price Catalysts primary view (Reports Summary page)

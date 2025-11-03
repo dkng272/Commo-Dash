@@ -80,7 +80,7 @@ def build_indexes(df):
         combined_df = combined_df.merge(temp_df, on='Date', how='outer')
 
     combined_df = combined_df.sort_values('Date')
-    combined_df = combined_df.ffill()
+    # Removed ffill() - use raw indexes for performance calculations to avoid stale forward-filled data
 
     # Regional indexes
     regional_indexes = create_regional_indexes(df)
@@ -96,7 +96,7 @@ def build_indexes(df):
             regional_combined_df = regional_combined_df.merge(temp_df, on='Date', how='outer')
 
         regional_combined_df = regional_combined_df.sort_values('Date')
-        regional_combined_df = regional_combined_df.ffill()
+        # Removed ffill() - use raw regional_indexes for performance calculations
     else:
         regional_combined_df = pd.DataFrame()
 
@@ -146,7 +146,10 @@ selected_group = st.sidebar.selectbox(
 
 # Page Title with selected group
 st.title(f'{selected_group}')
-index_data = combined_df[selected_group].dropna()
+
+# Use raw index data (not forward-filled combined_df) for accurate performance metrics
+index_df = all_indexes[selected_group].sort_values('Date')
+index_data = index_df['Index_Value']
 
 # Helper function for color coding
 def get_color(value):
@@ -348,8 +351,9 @@ if len(regional_keys) > 0:
             regional_names = df[(df['Group'] == selected_group) & (df['Region'] == region_name)]['Name'].unique()
             st.caption(f"**Components ({region_name}):** {', '.join(sorted(regional_names))}")
 
-            # Regional metrics
-            regional_data = regional_combined_df[regional_key].dropna()
+            # Regional metrics - use raw regional index data
+            regional_index_df = regional_indexes[regional_key].sort_values('Date')
+            regional_data = regional_index_df['Index_Value']
             col1r, col2r, col3r = st.columns(3)
 
             with col1r:
