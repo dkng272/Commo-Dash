@@ -287,6 +287,12 @@ ticker_mapping = load_ticker_mappings()
 
 spreads_df = calculate_all_ticker_spreads(df, all_indexes, regional_indexes, ticker_mapping)
 
+# Add absolute value columns for sorting by largest movers
+spreads_df['Abs_Spread_5D'] = spreads_df['Spread_5D'].abs()
+spreads_df['Abs_Spread_10D'] = spreads_df['Spread_10D'].abs()
+spreads_df['Abs_Spread_50D'] = spreads_df['Spread_50D'].abs()
+spreads_df['Abs_Spread_150D'] = spreads_df['Spread_150D'].abs()
+
 st.divider()
 
 # Visual Section Container for Market Movers
@@ -598,9 +604,6 @@ with tab1:
     render_commodity_quick_viewer()
 
 with tab2:
-    # Toggle between best benefited and worst hit
-    show_worst = st.checkbox('Show Worst Hit Stocks', value=False)
-
     st.caption("**Tip:** Visit the Ticker Analysis page for detailed stock analysis")
 
     # Create 4-column layout
@@ -612,46 +615,42 @@ with tab2:
 
     with col1:
         st.write("**5D Spread**")
-        if show_worst:
-            top_5d = spreads_df.nsmallest(5, 'Spread_5D')[['Ticker', 'Spread_5D']]
-        else:
-            top_5d = spreads_df.nlargest(5, 'Spread_5D')[['Ticker', 'Spread_5D']]
+        # Top 10 by absolute spread
+        top_5d = spreads_df.nlargest(10, 'Abs_Spread_5D')[['Ticker', 'Spread_5D']]
         st.dataframe(
             top_5d.style.map(color_spread, subset=['Spread_5D']).format({'Spread_5D': '{:.2f}'}),
-            hide_index=True
+            hide_index=True,
+            height=400
         )
 
     with col2:
         st.write("**10D Spread**")
-        if show_worst:
-            top_10d = spreads_df.nsmallest(5, 'Spread_10D')[['Ticker', 'Spread_10D']]
-        else:
-            top_10d = spreads_df.nlargest(5, 'Spread_10D')[['Ticker', 'Spread_10D']]
+        # Top 10 by absolute spread
+        top_10d = spreads_df.nlargest(10, 'Abs_Spread_10D')[['Ticker', 'Spread_10D']]
         st.dataframe(
             top_10d.style.map(color_spread, subset=['Spread_10D']).format({'Spread_10D': '{:.2f}'}),
-            hide_index=True
+            hide_index=True,
+            height=400
         )
 
     with col3:
         st.write("**50D Spread**")
-        if show_worst:
-            top_50d = spreads_df.nsmallest(5, 'Spread_50D')[['Ticker', 'Spread_50D']]
-        else:
-            top_50d = spreads_df.nlargest(5, 'Spread_50D')[['Ticker', 'Spread_50D']]
+        # Top 10 by absolute spread
+        top_50d = spreads_df.nlargest(10, 'Abs_Spread_50D')[['Ticker', 'Spread_50D']]
         st.dataframe(
             top_50d.style.map(color_spread, subset=['Spread_50D']).format({'Spread_50D': '{:.2f}'}),
-            hide_index=True
+            hide_index=True,
+            height=400
         )
 
     with col4:
         st.write("**150D Spread**")
-        if show_worst:
-            top_150d = spreads_df.nsmallest(5, 'Spread_150D')[['Ticker', 'Spread_150D']]
-        else:
-            top_150d = spreads_df.nlargest(5, 'Spread_150D')[['Ticker', 'Spread_150D']]
+        # Top 10 by absolute spread
+        top_150d = spreads_df.nlargest(10, 'Abs_Spread_150D')[['Ticker', 'Spread_150D']]
         st.dataframe(
             top_150d.style.map(color_spread, subset=['Spread_150D']).format({'Spread_150D': '{:.2f}'}),
-            hide_index=True
+            hide_index=True,
+            height=400
         )
 
     # Quick Chart Viewer inside Stock Spreads tab
@@ -667,10 +666,10 @@ with tab2:
         )
 
         # Map time period to column name
-        spread_column = f'Spread_{time_period_stock}'
+        abs_spread_column = f'Abs_Spread_{time_period_stock}'
 
-        # Get top 5 tickers based on current selection and time period
-        available_tickers = spreads_df.nlargest(5, spread_column)['Ticker'].tolist() if not show_worst else spreads_df.nsmallest(5, spread_column)['Ticker'].tolist()
+        # Get top 10 tickers by absolute spread
+        available_tickers = spreads_df.nlargest(10, abs_spread_column)['Ticker'].tolist()
 
         if available_tickers:
             # Simple dropdown selector
@@ -678,7 +677,7 @@ with tab2:
                 "Select Ticker",
                 options=available_tickers,
                 index=0,
-                help=f"Type or select from top 5 movers ({time_period_stock} spread)"
+                help=f"Type or select from top 10 movers ({time_period_stock} spread)"
             )
 
             st.divider()
@@ -888,7 +887,7 @@ with tab2:
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
-            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 5 Movers</h3>
+            <h3 style="color: white; margin: 0; font-size: 18px;">Quick Viewer: Top 10 Movers</h3>
         </div>
     """, unsafe_allow_html=True)
     render_quick_viewer()
