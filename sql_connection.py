@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Any, Optional, Sequence
 from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
-import pymssql
+import pyodbc
 import re
 
 try:
@@ -35,72 +35,12 @@ def _default_connection_string() -> str:
     return connection_string
 
 
-def _parse_connection_string(connection_string: str) -> dict[str, str]:
-    """Parse a semi-colon separated connection string into a normalized dict."""
-    settings: dict[str, str] = {}
-    for part in connection_string.split(";"):
-        if not part.strip() or "=" not in part:
-            continue
-        key, value = part.split("=", 1)
-        normalized_key = key.strip().upper().replace(" ", "")
-        settings[normalized_key] = value.strip()
-    return settings
-
-
-def _build_connection_kwargs(connection_string: str) -> dict[str, Any]:
-    """Build pymssql kwargs from an ODBC-style connection string."""
-    settings = _parse_connection_string(connection_string)
-
-    server = settings.get("SERVER") or settings.get("ADDRESS") or settings.get("HOST")
-    database = settings.get("DATABASE") or settings.get("DB")
-    user = settings.get("UID") or settings.get("USERID") or settings.get("USER")
-    password = settings.get("PWD") or settings.get("PASSWORD")
-
-    if not all([server, database, user, password]):
-        raise RuntimeError(
-            "DB_AILAB_CONN must include SERVER, DATABASE, UID, and PWD entries for pymssql."
-        )
-
-    port = settings.get("PORT")
-    if server:
-        server = server.strip()
-        if server.lower().startswith("tcp:"):
-            server = server[4:]
-        if "," in server:
-            server, inferred_port = server.split(",", 1)
-            port = port or inferred_port
-        server = server.strip()
-
-    kwargs: dict[str, Any] = {
-        "server": server,
-        "user": user,
-        "password": password,
-        "database": database,
-    }
-
-    if port:
-        try:
-            kwargs["port"] = int(port)
-        except ValueError:
-            raise RuntimeError("PORT in DB_AILAB_CONN must be an integer if provided.") from None
-
-    timeout = settings.get("CONNECTIONTIMEOUT") or settings.get("TIMEOUT")
-    if timeout:
-        try:
-            kwargs["login_timeout"] = int(timeout)
-        except ValueError:
-            raise RuntimeError("Connection timeout must be numeric.") from None
-
-    return kwargs
-
-
-def get_connection(connection_str: Optional[str] = None) -> pymssql.Connection:
-    """Return a live pymssql connection using the provided connection string."""
+def get_connection(connection_str: Optional[str] = None) -> pyodbc.Connection:
+    """Return a live pyodbc connection using the ODBC connection string."""
     if not connection_str:
         connection_str = _default_connection_string()
 
-    kwargs = _build_connection_kwargs(connection_str)
-    return pymssql.connect(**kwargs)
+    return pyodbc.connect(connection_str)
 
 
 def test_connection() -> bool:
