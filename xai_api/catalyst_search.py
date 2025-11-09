@@ -21,6 +21,9 @@ from xai_sdk import Client
 from xai_sdk.chat import system, user
 from xai_sdk.search import SearchParameters, x_source
 
+# Model configuration
+MODEL = "grok-4-fast"
+
 
 def load_api_key_from_env(file_path: str = ".env") -> str:
     """
@@ -105,7 +108,7 @@ def search_catalysts(
         return_citations=True,
     )
 
-    chat = client.chat.create(model="grok-4-fast", search_parameters=search_config)
+    chat = client.chat.create(model=MODEL, search_parameters=search_config)
 
     # System prompt - concise but with key details
     chat.append(

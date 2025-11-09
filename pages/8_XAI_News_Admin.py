@@ -12,7 +12,7 @@ sys.path.append(xai_api_dir)
 
 # Import utilities
 from mongodb_utils import get_catalyst, get_catalyst_history, save_catalyst, can_auto_trigger, load_commodity_classifications
-from catalyst_search import search_catalysts
+from catalyst_search import search_catalysts, MODEL
 
 # Import batch search functions
 try:
@@ -38,6 +38,7 @@ st.markdown("""
 
 st.title('Catalyst Search Admin')
 st.markdown("*View and manage commodity price catalysts from X (Twitter)*")
+st.caption(f"Model: {MODEL}")
 
 # ===== Load Commodity Groups =====
 
