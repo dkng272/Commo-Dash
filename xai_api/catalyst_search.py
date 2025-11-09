@@ -105,7 +105,7 @@ def search_catalysts(
         return_citations=True,
     )
 
-    chat = client.chat.create(model="grok-2-latest", search_parameters=search_config)
+    chat = client.chat.create(model="grok-4-fast", search_parameters=search_config)
 
     # System prompt - concise but with key details
     chat.append(
