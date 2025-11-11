@@ -79,11 +79,28 @@ st.divider()
 
 # ===== TABS =====
 
-tab1, tab2 = st.tabs(["🔍 Individual Search", "🚀 Batch Search"])
+# Initialize tab state
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = "Individual Search"
 
-# ===== TAB 1: Individual Search =====
+# Tab selector buttons
+col_tab1, col_tab2 = st.columns(2)
+with col_tab1:
+    if st.button("🔍 Individual Search", use_container_width=True,
+                 type="primary" if st.session_state.active_tab == "Individual Search" else "secondary"):
+        st.session_state.active_tab = "Individual Search"
+        st.rerun()
+with col_tab2:
+    if st.button("🚀 Batch Search", use_container_width=True,
+                 type="primary" if st.session_state.active_tab == "Batch Search" else "secondary"):
+        st.session_state.active_tab = "Batch Search"
+        st.rerun()
 
-with tab1:
+st.divider()
+
+# Render active tab content
+if st.session_state.active_tab == "Individual Search":
+    # ===== TAB 1: Individual Search =====
     st.markdown("""
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     padding: 1px 12px; border-radius: 8px; margin-bottom: 12px;">
@@ -277,9 +294,8 @@ with tab1:
                 else:
                     st.error("❌ Failed to save catalyst to MongoDB")
 
-# ===== TAB 2: Batch Search =====
-
-with tab2:
+else:
+    # ===== TAB 2: Batch Search =====
     if not BATCH_SEARCH_AVAILABLE:
         st.error("❌ Batch search module not available. Check intelligent_batch_search.py")
     else:

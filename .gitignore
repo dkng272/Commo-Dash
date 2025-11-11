@@ -34,6 +34,7 @@ wheels/
 # IDE
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 *~
@@ -72,3 +73,6 @@ xai_api/*.json
 
 # Testing utils
 /rename_utils/*
+
+# Documentation for Agents
+MCP AI Agents/*
