@@ -2,7 +2,6 @@
 from contextlib import closing
 from functools import lru_cache
 from typing import Any, Optional, Sequence
-from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 import pyodbc
 import re
@@ -118,21 +117,36 @@ def _fetch_ticker_reference_impl(schema: Optional[str] = "dbo") -> pd.DataFrame:
     return result
 
 
-def fetch_sector_data(sector_name: str, schema: Optional[str] = "dbo") -> pd.DataFrame:
-    """Fetch data from a specific sector table.
+def fetch_commodity_data(
+    sector_filter: Optional[str] = None,
+    start_date: Optional[str] = None,
+    schema: Optional[str] = "dbo"
+) -> pd.DataFrame:
+    """Fetch data from the centralized Commodity table.
 
     Args:
-        sector_name: Name of the sector table (e.g., 'Steel', 'Agriculture')
+        sector_filter: Optional sector to filter (e.g., 'Steel', 'Metals')
+        start_date: Filter data from this date onwards (YYYY-MM-DD format)
         schema: Database schema (default: 'dbo')
 
     Returns:
-        DataFrame with columns: Ticker, Date, Price
+        DataFrame with columns: Ticker, Sector, Date, Price
     """
-    qualified_table = _format_identifier(sector_name)
+    qualified_table = _format_identifier("Commodity")
     if schema:
         qualified_table = f"{_format_identifier(schema)}.{qualified_table}"
 
+    # Build query with optional filters
     query = f"SELECT * FROM {qualified_table}"
+    where_clauses = []
+
+    if sector_filter:
+        where_clauses.append(f"Sector = '{sector_filter}'")
+    if start_date:
+        where_clauses.append(f"Date >= '{start_date}'")
+
+    if where_clauses:
+        query += " WHERE " + " AND ".join(where_clauses)
 
     with closing(get_connection()) as conn:
         result = pd.read_sql(query, conn)
@@ -145,6 +159,8 @@ def fetch_sector_data(sector_name: str, schema: Optional[str] = "dbo") -> pd.Dat
             result['Price'] = pd.to_numeric(result['Price'], errors='coerce')
         if 'Ticker' in result.columns:
             result['Ticker'] = result['Ticker'].str.strip()
+        if 'Sector' in result.columns:
+            result['Sector'] = result['Sector'].str.strip()
 
     return result
 
@@ -153,27 +169,23 @@ def fetch_all_commodity_data(
     exclude_sectors: Optional[Sequence[str]] = None,
     start_date: Optional[str] = None,
     schema: Optional[str] = "dbo",
-    parallel: bool = True,
-    max_workers: int = 5
+    parallel: bool = True,  # Kept for API compatibility, no longer used
+    max_workers: int = 5    # Kept for API compatibility, no longer used
 ) -> pd.DataFrame:
-    """Fetch all commodity data from all sector tables.
+    """Fetch all commodity data from the centralized Commodity table.
 
-    This function replicates the logic from commo.py:
-    1. Load Ticker_Reference to get all sectors
-    2. Loop through each sector table and load data (parallel or sequential)
-    3. Concatenate all data
-    4. Add Name column from ticker reference
+    Simplified version that queries the single Commodity table instead of
+    looping through multiple sector tables. Much faster and simpler!
 
     Args:
         exclude_sectors: List of sector names to exclude (e.g., ['Textile'])
         start_date: Filter data from this date onwards (YYYY-MM-DD format)
         schema: Database schema (default: 'dbo')
-        parallel: Use parallel loading for faster performance (default: True)
-        max_workers: Max threads for parallel loading (default: 5)
+        parallel: Deprecated - kept for API compatibility
+        max_workers: Deprecated - kept for API compatibility
 
     Returns:
-        DataFrame with columns: Ticker, Date, Price, Name
-        Note: Sector column is NOT included - use classification_loader to add it
+        DataFrame with columns: Ticker, Sector, Date, Price, Name
     """
     if st is not None:
         # Convert list to tuple for caching (lists are not hashable)
@@ -204,78 +216,39 @@ def _fetch_all_commodity_data_impl(
     exclude_sectors: Optional[Sequence[str]] = None,
     start_date: Optional[str] = None,
     schema: Optional[str] = "dbo",
-    parallel: bool = True,
-    max_workers: int = 5
+    parallel: bool = True,  # Kept for API compatibility
+    max_workers: int = 5    # Kept for API compatibility
 ) -> pd.DataFrame:
-    """Implementation of fetch_all_commodity_data."""
-    # Load ticker reference
+    """Implementation of fetch_all_commodity_data.
+
+    Simplified version using centralized Commodity table - no more parallel loading needed!
+    """
+    # Load ticker reference for Name mapping
     ticker_ref = fetch_ticker_reference(schema=schema)
 
     # Create ticker to name mapping
     ticker_name_dict = dict(zip(ticker_ref['Ticker'], ticker_ref['Name']))
 
-    # Get unique sectors
-    sectors = ticker_ref['Sector'].unique()
+    # Fetch all commodity data from centralized table
+    result = fetch_commodity_data(
+        sector_filter=None,  # Get all sectors
+        start_date=start_date,
+        schema=schema
+    )
 
-    # Filter out excluded sectors
-    if exclude_sectors:
+    # Filter out excluded sectors if specified
+    if exclude_sectors and not result.empty:
         exclude_set = set(s.strip() for s in exclude_sectors)
-        sectors = [s for s in sectors if s not in exclude_set]
-
-    # Load data from each sector table
-    full_data = []
-    failed_sectors = []
-
-    if parallel:
-        # Parallel loading (faster - ~10-15s instead of 30s)
-        def load_sector(sector_name):
-            try:
-                df = fetch_sector_data(sector_name, schema=schema)
-                # Don't add Sector column here - let classification_loader handle it
-                return df, None
-            except Exception as e:
-                return None, (sector_name, str(e))
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(load_sector, sector) for sector in sectors]
-
-            for future in futures:
-                df, error = future.result()
-                if df is not None:
-                    full_data.append(df)
-                elif error:
-                    sector_name, error_msg = error
-                    failed_sectors.append((sector_name, error_msg))
-                    print(f"Warning: Could not load sector '{sector_name}': {error_msg}")
-    else:
-        # Sequential loading (original approach)
-        for sector_name in sectors:
-            try:
-                df = fetch_sector_data(sector_name, schema=schema)
-                # Don't add Sector column here - let classification_loader handle it
-                full_data.append(df)
-            except Exception as e:
-                failed_sectors.append((sector_name, str(e)))
-                print(f"Warning: Could not load sector '{sector_name}': {e}")
-                continue
-
-    # Log summary
-    print(f"Loaded {len(full_data)} sectors successfully")
-    if failed_sectors:
-        print(f"Failed to load {len(failed_sectors)} sectors: {[s[0] for s in failed_sectors]}")
-
-    # Concatenate all data
-    if not full_data:
-        return pd.DataFrame(columns=['Ticker', 'Date', 'Price', 'Name'])
-
-    result = pd.concat(full_data, ignore_index=True)
+        result = result[~result['Sector'].isin(exclude_set)]
 
     # Add Name column from ticker reference
-    result['Name'] = result['Ticker'].map(ticker_name_dict)
+    if not result.empty:
+        result['Name'] = result['Ticker'].map(ticker_name_dict)
+    else:
+        # Return empty DataFrame with expected columns
+        result = pd.DataFrame(columns=['Ticker', 'Sector', 'Date', 'Price', 'Name'])
 
-    # Filter by start date if specified
-    if start_date and 'Date' in result.columns:
-        result = result[result['Date'] >= start_date]
+    print(f"Loaded {len(result)} commodity price records from centralized Commodity table")
 
     return result
 
