@@ -273,7 +273,8 @@ with col_title:
     st.title('Commodity Dashboard')
 with col_update:
     # Last updated timestamp based on latest data date
-    latest_data_date = df['Date'].max().strftime('%Y-%m-%d')
+    max_date = df['Date'].max()
+    latest_data_date = max_date.strftime('%Y-%m-%d') if pd.notna(max_date) else 'N/A'
     st.markdown(f"""
         <div style="text-align: right; padding-top: 20px;">
             <span style="color: #666; font-size: 12px;">Last updated</span><br>
