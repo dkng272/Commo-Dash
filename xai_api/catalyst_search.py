@@ -22,7 +22,7 @@ from xai_sdk.chat import system, user
 from xai_sdk.search import SearchParameters, x_source
 
 # Model configuration
-MODEL = "grok-4-fast"
+MODEL = "grok-4-1-fast"
 
 
 def load_api_key_from_env(file_path: str = ".env") -> str:
