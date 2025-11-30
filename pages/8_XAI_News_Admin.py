@@ -36,6 +36,33 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ===== PASSWORD PROTECTION =====
+
+if 'xai_admin_authenticated' not in st.session_state:
+    st.session_state.xai_admin_authenticated = False
+
+if not st.session_state.xai_admin_authenticated:
+    st.title('Catalyst Search Admin')
+    st.warning("🔒 This page is password protected to prevent unauthorized API calls.")
+
+    with st.container(border=True):
+        st.markdown("### Enter Admin Password")
+        password_input = st.text_input("Password", type="password", placeholder="Enter password to access")
+
+        if st.button("Authenticate", use_container_width=True):
+            correct_password = st.secrets.get("XAI_ADMIN_PASSWORD")
+
+            if correct_password and password_input == correct_password:
+                st.session_state.xai_admin_authenticated = True
+                st.success("✅ Authentication successful!")
+                st.rerun()
+            else:
+                st.error("❌ Incorrect password")
+
+    st.stop()
+
+# ===== AUTHENTICATED CONTENT BELOW =====
+
 st.title('Catalyst Search Admin')
 st.markdown("*View and manage commodity price catalysts from X (Twitter)*")
 st.caption(f"Model: {MODEL}")
