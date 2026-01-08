@@ -39,6 +39,33 @@ def get_database():
     client = get_mongo_client()
     return client["commodity_dashboard"]
 
+
+def get_iris_mongo_client():
+    """
+    Get MongoDB client for IRIS database (ClaudeTrade)
+    """
+    if HAS_STREAMLIT:
+        try:
+            mongo_uri = st.secrets["IRIS_MONGODB_URI"]
+        except:
+            mongo_uri = os.getenv("IRIS_MONGODB_URI")
+    else:
+        mongo_uri = os.getenv("IRIS_MONGODB_URI")
+
+    if not mongo_uri:
+        raise ValueError("IRIS_MONGODB_URI not found in secrets or environment variables")
+
+    client = MongoClient(mongo_uri)
+    return client
+
+
+def get_iris_database():
+    """
+    Get the IRIS database for catalyst/news data (ClaudeTrade)
+    """
+    client = get_iris_mongo_client()
+    return client["IRIS"]
+
 def load_ticker_mappings() -> List[Dict[str, Any]]:
     """
     Load ticker mappings from MongoDB
@@ -234,7 +261,7 @@ def save_commodity_classifications(classifications: List[Dict[str, Any]]) -> boo
 
 def load_catalysts() -> List[Dict[str, Any]]:
     """
-    Load all catalysts from MongoDB
+    Load all catalysts from MongoDB (IRIS database)
     Returns list of catalyst dictionaries sorted by date_created (newest first)
 
     Schema: {
@@ -247,8 +274,8 @@ def load_catalysts() -> List[Dict[str, Any]]:
         "cooldown_until": "ISO8601 timestamp"
     }
     """
-    db = get_database()
-    collection = db["catalysts"]
+    db = get_iris_database()
+    collection = db["commodity_news"]
 
     # Fetch all catalysts, sorted by date_created (newest first)
     catalysts = list(collection.find({}, {'_id': 0}).sort("date_created", -1))
@@ -269,8 +296,8 @@ def get_catalyst(commodity_group: str) -> Optional[Dict[str, Any]]:
     Returns:
     - Latest catalyst document if found, None otherwise
     """
-    db = get_database()
-    collection = db["catalysts"]
+    db = get_iris_database()
+    collection = db["commodity_news"]
 
     # Get the latest catalyst by date_created
     catalyst = collection.find_one(
@@ -292,8 +319,8 @@ def get_catalyst_history(commodity_group: str, limit: int = 10) -> List[Dict[str
     Returns:
     - List of catalyst documents, sorted newest first
     """
-    db = get_database()
-    collection = db["catalysts"]
+    db = get_iris_database()
+    collection = db["commodity_news"]
 
     catalysts = list(collection.find(
         {"commodity_group": commodity_group},
@@ -310,7 +337,7 @@ def save_catalyst(
     direction: Optional[str] = None
 ) -> bool:
     """
-    Save new catalyst for a commodity group (creates new document)
+    Save new catalyst for a commodity group (creates new document in IRIS database)
 
     Parameters:
     - commodity_group: Name of the commodity group
@@ -323,8 +350,8 @@ def save_catalyst(
     - bool: True if successful, False otherwise
     """
     try:
-        db = get_database()
-        collection = db["catalysts"]
+        db = get_iris_database()
+        collection = db["commodity_news"]
 
         now = datetime.utcnow()
         search_date = now.strftime("%Y-%m-%d")
