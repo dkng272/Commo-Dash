@@ -19,10 +19,10 @@ import argparse
 
 from xai_sdk import Client
 from xai_sdk.chat import system, user
-from xai_sdk.search import SearchParameters, x_source
+from xai_sdk.tools import x_search
 
 # Model configuration
-MODEL = "grok-4-1-fast"
+MODEL = "grok-4-1-fast-non-reasoning"
 
 
 def load_api_key_from_env(file_path: str = ".env") -> str:
@@ -99,16 +99,10 @@ def search_catalysts(
     now = datetime.now(timezone.utc)
     search_start = now - timedelta(days=lookback_days)
 
-    search_config = SearchParameters(
-        mode="on",
-        from_date=search_start,
-        to_date=now,
-        sources=[x_source()],
-        max_search_results=28,
-        return_citations=True,
+    chat = client.chat.create(
+        model=MODEL,
+        tools=[x_search(from_date=search_start, to_date=now)],
     )
-
-    chat = client.chat.create(model=MODEL, search_parameters=search_config)
 
     # System prompt - concise but with key details
     chat.append(
